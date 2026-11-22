@@ -1,0 +1,336 @@
+/* ==============================================
+   NVIDIA WOW Slider - Final Unified CSS
+   (Merged + DPI-aware + Modern)
+   ============================================== */
+
+/* ===== General Reset ===== */
+html,
+body {
+  background: #000;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: "NVIDIA Sans", Arial, Helvetica, sans-serif;
+}
+
+
+/* .slider-cont {
+      max-width: 220px;
+    } */
+#slider-title,
+#slider-description,
+#slider-small-text {
+  line-height: 1.2;
+}
+
+#wowslider-container .ws_bullets {
+  top: inherit !important;
+  left: inherit !important;
+}
+
+.noscript-content h2 {
+  /*font-size: 65px !important;*/
+  /* position: absolute;*/
+  top: 30px;
+  color: #FFF;
+}
+
+.noscript-content p {
+  color: #fff;
+  margin: 0;
+  font-size: 14px;
+}
+
+
+/* ===== Slider Container ===== */
+/*#wowslider-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  max-width: 100%;
+  overflow: hidden;
+ background-color: #000;
+  box-sizing: border-box;
+  display: block !important;
+}*/
+
+
+/* ===== Slider and Images ===== */
+/* === B4 Fix .slider,
+#slider-images,
+.slider-img,
+.slider img {
+  position: relative;
+
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: none;
+}
+
+.slider,
+#slider-images {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.slider-img,
+.slider img {
+  position: relative;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: none;
+}*/
+
+/* Container establishes height */
+#wowslider-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Layout wrappers stay relative */
+.slider,
+#slider-images {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Images must be absolute to avoid blocking paint */
+.slider-img,
+.slider img {
+  position: relative;
+  /* CRITICAL */
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: none;
+}
+
+/* Installer early paint helper */
+.in-installer #installer-paint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.in-installer #installer-paint img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.in-installer .slider {
+  position: relative;
+  z-index: 2;
+}
+
+
+/* ===== Text Overlay ===== */
+.slider-cont {
+  position: absolute;
+  top: 20px;
+  left: 10px;
+  z-index: 10;
+  color: #fff;
+  max-width: 220px;
+  width: 45%;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.slider-cont h3#slider-title,
+.slider-cont h2#slider-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px;
+}
+
+#slider-title,
+#slider-description,
+#slider-small-text {
+  line-height: 1.2;
+}
+
+.slider-cont p#slider-description {
+  font-size: 15px;
+  color: #fff;
+  margin: 0 0 8px;
+}
+
+.slider-cont p#slider-small-text {
+  font-size: 10px;
+  color: #ccc;
+}
+
+.slider-cont img#game-rating-logo {
+  width: 50px;
+  height: auto;
+}
+
+/* ===== CTA Button ===== */
+.nv-btn,
+.slider-cont .nv-btn {
+  position: absolute;
+  bottom: 15px;
+  left: 10px;
+  background-color: #76b900;
+  color: #000;
+  font-weight: 700;
+  padding: 12px 24px;
+  font-size: 15px;
+  text-decoration: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  z-index: 20;
+  transition: background-color 0.1s ease;
+}
+
+.nv-btn:hover {
+  background-color: #8ed000;
+}
+
+/* ===== Navigation Chiclets ===== */
+
+
+
+.ws_bullets {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  z-index: 20;
+  text-align: right;
+}
+
+.ws_bullets a {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin: 0 2px;
+  background-color: transparent;
+  border: 1px solid #cecece;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.ws_bullets a.active,
+.ws_bullets a:hover {
+  background-color: #76b900;
+  border-color: #76b900;
+}
+
+/* ===== NoScript Fallback ===== */
+
+/*body:not(.in-browser):not(.in-installer) #slider-button {
+  display: none;
+}*/
+
+.noscript-content {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+}
+
+.noscript-content img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.noscript-content h2 {
+  position: absolute;
+  top: 30px;
+  left: 10px;
+  font-size: 65px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.noscript-content p {
+  position: absolute;
+  top: 110px;
+  left: 10px;
+  margin: 0;
+  color: #ccc;
+  font-size: 24px;
+}
+
+.noscript-content .nv-btn {
+  position: absolute;
+  bottom: 60px;
+  left: 15px;
+  background-color: #76b900;
+  color: #000;
+  font-weight: 700;
+  padding: 10px 20px;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+/* ===== Responsive Adjustments ===== */
+@media (max-width: 768px) {
+  #wowslider-container {
+    height: auto;
+  }
+
+  .slider-cont {
+    top: 10px;
+    left: 10px;
+    max-width: 180px;
+  }
+
+  .slider-cont h3 {
+    font-size: 18px;
+  }
+
+  .slider-cont p {
+    font-size: 13px;
+  }
+
+  .nv-btn {
+    padding: 10px 18px;
+    font-size: 13px;
+  }
+
+  .ws_bullets {
+    bottom: 10px;
+    right: 10px;
+  }
+
+  .ws_bullets a {
+    width: 8px;
+    height: 8px;
+  }
+}
+
+/* ===== Restrict banner to 592x360 only when opened directly in a browser ===== */
+@media screen {
+  body:not(.in-installer) #wowslider-container {
+    width: 592px !important;
+    height: 360px !important;
+    /* margin: 0 auto !important;*/
+    transform: none !important;
+  }
+}
