@@ -114,11 +114,6 @@
     .counter { color: var(--muted); font-size: 22px; font-weight: 600; white-space: nowrap; letter-spacing: .5px; }
     .counter strong { color: var(--text); font-size: 22px; font-weight: 800; margin-right: 2px; }
     .question-text { font-size: 19px; font-weight: 650; line-height: 1.85; margin: 0 0 24px; overflow-wrap: anywhere; }
-    .blank-answer {
-      color: var(--green-dark); font-weight: 700;
-      background: var(--green-soft); border-radius: 6px;
-      padding: 0 5px; border-bottom: 2px solid rgba(11, 159, 122, .45);
-    }
     .options { display: grid; gap: 12px; }
     .option {
       width: 100%;
@@ -152,6 +147,18 @@
     }
     .option-content { flex: 1; min-width: 0; overflow: visible; padding: 3px 0; display: flex; align-items: center; }
     .option { min-width: 0; }
+    .blank-ans {
+      display: inline-block;
+      color: var(--green-dark);
+      font-weight: 700;
+      background: var(--green-soft);
+      border-bottom: 2px solid rgba(11, 159, 122, .55);
+      border-radius: 4px 4px 2px 2px;
+      padding: 0 4px;
+      margin: 0 1px;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
     .option-content mjx-container, .question-text mjx-container { max-width: 100%; }
     .option-content mjx-container svg, .question-text mjx-container svg { max-width: 100%; height: auto; }
     .option-content { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
@@ -2972,9 +2979,9 @@ window.MathJax = {
       return 'muted';
     }
 
-    // 填空/背题时，把正确答案直接填进题干的空里
+    // 填空：答案填进空里，但保留下划线原来的长度（答案显示在横线上方）
     function fillStemWithAnswers(q) {
-      let stem = q.stem || '';
+      const stem = q.stem || '';
       const blanks = (stem.match(/_{2,}/g) || []).length;
       if (!blanks || !(q.answer || q.answerHtml)) return stem;
       let parts = [];
@@ -2993,7 +3000,23 @@ window.MathJax = {
       }
       if (!parts.length) parts = [q.answer || ''];
       let i = 0;
-      return stem.replace(/_{2,}/g, (m) => (i < parts.length ? '<span class="blank-answer">' + parts[i++] + '</span>' : m));
+      return stem.replace(/_{2,}/g, (m) => (i < parts.length
+        ? '<span class="blank-ans">' + parts[i++] + '</span>'
+        : m));
+    }
+
+    // 公式字号自适应：同一题内统一（有复杂公式就整题略放大）
+    function tuneMathScale(root) {
+      if (!root) return;
+      const els = Array.from(root.querySelectorAll('mjx-container'));
+      if (!els.length) return;
+      const COMPLEX = '[data-mml-node="mfrac"], [data-mml-node="msqrt"], [data-mml-node="mroot"], [data-mml-node="munderover"], [data-mml-node="munder"], [data-mml-node="mtable"]';
+      const anyComplex = els.some((el) => el.querySelector(COMPLEX));
+      els.forEach((el) => {
+        if (anyComplex) el.style.fontSize = '1.12em';
+        else if (el.getAttribute('display') === 'true') el.style.fontSize = '1.1em';
+        else el.style.fontSize = '1em';
+      });
     }
 
     // 公式过宽时自动缩小，避免撑出卡片
@@ -3009,21 +3032,6 @@ window.MathJax = {
             el.style.fontSize = Math.max(10, cur * (avail / w) * 0.98) + 'px';
           }
         });
-      });
-    }
-
-    // 公式字号自适应：分式/根式/上下标等复杂公式放大，简单符号保持正常字号
-    function tuneMathScale(root) {
-      if (!root) return;
-      const els = Array.from(root.querySelectorAll('mjx-container'));
-      if (!els.length) return;
-      const COMPLEX = '[data-mml-node="mfrac"], [data-mml-node="msqrt"], [data-mml-node="mroot"], [data-mml-node="munderover"], [data-mml-node="munder"], [data-mml-node="mtable"]';
-      // 同一道题内公式统一字号：只要有一个复杂公式，全部都用大号，避免忽大忽小
-      const anyComplex = els.some((el) => el.querySelector(COMPLEX));
-      els.forEach((el) => {
-        if (anyComplex) el.style.fontSize = '1.12em';
-        else if (el.getAttribute('display') === 'true') el.style.fontSize = '1.1em';
-        else el.style.fontSize = '1em';
       });
     }
 
