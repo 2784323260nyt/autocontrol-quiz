@@ -1,0 +1,3702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自动控制原理</title>
+  <style>
+    html { scrollbar-gutter: stable; }
+    :root {
+      --bg: #f4f7f6;
+      --card: #ffffff;
+      --text: #17201e;
+      --muted: #6c7774;
+      --line: #e1e8e6;
+      --green: #0b9f7a;
+      --green-dark: #08775b;
+      --green-soft: #e9f8f3;
+      --red: #d84c4c;
+      --red-soft: #fff0ef;
+      --amber: #956410;
+      --amber-soft: #fff7e6;
+      --shadow: 0 12px 34px rgba(24, 52, 44, .07);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      line-height: 1.75;
+    }
+    button { font: inherit; }
+    button:focus-visible { outline: 3px solid rgba(11, 159, 122, .24); outline-offset: 3px; }
+    .topbar {
+      background: rgba(255, 255, 255, .96);
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+    }
+    .topbar-inner {
+      max-width: 1100px;
+      margin: auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    h1 { font-size: 19px; line-height: 1.35; margin: 0; }
+    .brand p { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+    .mode-switch {
+      display: flex;
+      padding: 4px;
+      background: #edf1f0;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+    .mode-btn, .order-btn {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 7px 20px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .mode-btn.active, .order-btn.active { background: var(--text); color: white; box-shadow: 0 3px 10px rgba(0,0,0,.12); }
+    .order-switch[hidden] { display: none; }
+    #orderSwitch { display: none !important; } /* 正序/乱序入口隐藏，默认乱序 */
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 26px 24px 42px;
+      min-height: calc(100vh - 72px);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+    .layout { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 22px; align-items: start; }
+    .card { background: var(--card); border-radius: 22px; box-shadow: var(--shadow); }
+    /* 防止背题模式的长公式把卡片撑宽（手机端横移/缩放感） */
+    .layout > * { min-width: 0; }
+    mjx-container[display="true"] { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+
+    .question-card { padding: 28px; min-height: 570px; align-self: stretch; display: flex; flex-direction: column; }
+
+    .timer-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 11px; border-radius: 999px;
+      background: #f1f5f3; color: var(--muted); font-size: 12px; font-weight: 500;
+      border: 1px solid #e6ecea;
+    }
+    .timer-chip .timer-dot { background: #a9c3ba; width: 6px; height: 6px; animation: none; }
+    .timer-chip.paused { opacity: .55; }
+    .timer-chip b { font-variant-numeric: tabular-nums; font-weight: 600; color: #55625e; }
+    .timer-chip .timer-sep { opacity: .5; }
+    .chip-finish {
+      border: 1px solid #e1e8e6; border-radius: 999px; background: #fff; color: var(--muted);
+      padding: 2px 13px; font-size: 12px; font-weight: 600; cursor: pointer; line-height: 1.5;
+    }
+    .chip-finish:hover { color: var(--text); border-color: #cbdcd6; }
+    @media (max-width: 580px) {
+      .timer-chip { font-size: 11px; padding: 1px 9px; gap: 5px; }
+      .chip-finish { font-size: 11px; padding: 1px 10px; }
+    }
+    .question-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; row-gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .question-meta .tags { min-width: 0; }
+    .question-meta .meta-right { flex: 0 0 auto; margin-left: auto; gap: 10px; }
+    .tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .tag { padding: 3px 10px; border-radius: 999px; background: var(--green-soft); color: var(--green-dark); font-size: 12px; font-weight: 700; }
+    .counter { color: var(--muted); font-size: 22px; font-weight: 600; white-space: nowrap; letter-spacing: .5px; }
+    .counter strong { color: var(--text); font-size: 22px; font-weight: 800; margin-right: 2px; }
+    .question-text { font-size: 19px; font-weight: 650; line-height: 1.85; margin: 0 0 24px; overflow-wrap: anywhere; }
+    .blank-answer {
+      color: var(--green-dark); font-weight: 700;
+      background: var(--green-soft); border-radius: 6px;
+      padding: 0 5px; border-bottom: 2px solid rgba(11, 159, 122, .45);
+    }
+    .options { display: grid; gap: 12px; }
+    .option {
+      width: 100%;
+      min-height: 52px;
+      font-size: 15px;
+      line-height: 1.6;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+      padding: 10px 15px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: white;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color .18s, background .18s, transform .18s;
+    }
+    .answer-mode .option:not(:disabled):hover { border-color: var(--green); background: #f8fcfa; transform: translateY(-1px); }
+    .option:disabled { cursor: default; opacity: 1; }
+    .option-letter {
+      width: 31px;
+      height: 31px;
+      border-radius: 50%;
+      background: #f0f3f2;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      font-weight: 700;
+      font-family: Arial, sans-serif;
+    }
+    .option-content { flex: 1; min-width: 0; overflow: visible; padding: 3px 0; display: flex; align-items: center; }
+    .option .option-content, .option .option-status { color: var(--text); }
+    .option-status { font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .option.correct { background: var(--green-soft); border-color: var(--green); }
+    .option.correct .option-letter { background: var(--green); color: white; }
+    .option.wrong { background: var(--red-soft); border-color: var(--red); }
+    .option.wrong .option-letter { background: var(--red); color: white; }
+    .option.muted { opacity: 1; }
+    .solution {
+      margin-top: 24px;
+      border-radius: 16px;
+      background: #f5f8f7;
+      border-left: 4px solid var(--green);
+      padding: 18px 20px;
+      animation: appear .22s ease-out;
+    }
+    @keyframes appear { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+    .solution-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .answer-line { font-size: 16px; font-weight: 800; color: var(--green-dark); }
+    .answer-line .user-wrong { color: var(--red); margin-left: 10px; font-weight: 500; }
+    .redo { border: 0; background: white; color: var(--muted); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+    .recall-panel { padding: 28px 20px; border-radius: 16px; background: #f5f8f7; text-align: center; color: var(--muted); }
+    .recall-panel p { margin: 0 0 15px; font-size: 14px; }
+    .recall-btn { border: 0; border-radius: 999px; background: var(--text); color: white; padding: 9px 24px; cursor: pointer; }
+    .self-check { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0; padding: 12px 14px; background: white; border-radius: 12px; }
+    .self-check span { color: var(--muted); font-size: 13px; }
+    .self-check div { display: flex; gap: 8px; }
+    .self-check button { border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+    .self-check button[data-grade="correct"] { background: var(--green-soft); color: var(--green-dark); }
+    .self-check button[data-grade="wrong"] { background: var(--red-soft); color: var(--red); }
+    .fill-result { margin-left: 10px; font-weight: 500; }
+    .fill-result.good { color: var(--green-dark); }
+    .fill-result.bad { color: var(--red); }
+    .solution h2 { font-size: 15px; margin: 10px 0 6px; }
+    .solution p { margin: 7px 0; font-size: 14px; color: #45514e; }
+    .formula-box { margin: 10px 0; padding: 10px 13px; background: white; border-radius: 10px; overflow-x: auto; color: #26332f; }
+    .caution { margin-top: 12px; padding: 11px 13px; border-radius: 11px; background: var(--amber-soft); color: #785313; font-size: 13px; }
+    .caution strong { display: block; margin-bottom: 3px; }
+    .question-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 26px; }
+    .nav-btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 22px;
+      background: #edf1f0;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .nav-btn.primary { background: var(--text); color: white; }
+    .nav-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .sidebar { display: grid; gap: 16px; position: sticky; top: 98px; }
+    .sidebar > .mode-switch { width: 100%; }
+    .sidebar > .mode-switch .mode-btn, .sidebar > .mode-switch .order-btn { flex: 1; padding-left: 10px; padding-right: 10px; }
+    .panel { padding: 20px; }
+    .panel-title { display: flex; justify-content: space-between; align-items: center; margin: 0 0 14px; font-size: 14px; }
+    .panel-title span { color: var(--muted); font-size: 12px; font-weight: 400; }
+    .question-grid { display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-rows: 36px; gap: 8px; max-height: 212px; overflow-y: auto; padding-right: 6px; scrollbar-width: thin; scrollbar-color: #b8c4c0 transparent; }
+    .question-grid::-webkit-scrollbar { width: 5px; }
+    .question-grid::-webkit-scrollbar-thumb { background: #b8c4c0; border-radius: 999px; }
+    .question-grid::-webkit-scrollbar-track { background: transparent; }
+    .q-num {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: white;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0;
+    }
+    .q-num.current { border-color: var(--text); color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+    .q-num.done { background: var(--green-soft); color: var(--green-dark); border-color: transparent; }
+    .q-num.error { background: var(--red-soft); color: var(--red); border-color: transparent; }
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; color: var(--muted); font-size: 11px; }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #d8dfdd; }
+    .dot.done { background: var(--green); }
+    .dot.error { background: var(--red); }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; margin-bottom: 16px; }
+    .stat strong { display: block; font-size: 22px; line-height: 1.4; }
+    .stat span { color: var(--muted); font-size: 11px; }
+    .progress-track { height: 7px; border-radius: 99px; background: #edf1f0; overflow: hidden; }
+    .progress-bar { height: 100%; width: 0; background: var(--green); border-radius: inherit; transition: width .1s linear; }
+    .progress-text { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 7px; }
+    .reset {
+      width: 100%; margin-top: 10px; border: 1px solid var(--line); border-radius: 12px;
+      padding: 11px 14px; background: #f4f7f6; color: var(--text);
+      font-weight: 600; font-size: 14px; cursor: pointer; transition: .2s;
+    }
+    .reset:hover { background: #e9f1ee; border-color: #cdded8; }
+    .tip { color: var(--muted); font-size: 12px; text-align: center; margin: 18px 0 0; }
+    .math { font-family: "Times New Roman", "Cambria Math", serif; font-style: italic; white-space: nowrap; }
+    .frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.25; margin: 0 .16em; }
+    .frac > span:first-child { border-bottom: 1px solid currentColor; padding: 0 .24em .08em; }
+    .frac > span:last-child { padding: .08em .24em 0; }
+    .sqrt { display: inline-flex; align-items: stretch; white-space: nowrap; }
+    .sqrt > span { border-top: 1px solid currentColor; padding: 0 .12em; }
+    sup .frac { font-size: .85em; }
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; grid-template-columns: 1fr 1fr; }
+      .sidebar > .mode-switch { grid-column: 1 / -1; }
+      .question-card { min-height: auto; }
+    }
+    @media (max-width: 580px) {
+      .topbar-inner { padding: 12px 15px; gap: 10px; }
+      h1 { font-size: 16px; }
+      .brand p { display: none; }
+      .mode-btn, .order-btn { padding: 6px 13px; font-size: 13px; }
+      .wrap { padding: 16px 13px 30px; }
+      .question-card { padding: 20px 16px; border-radius: 18px; }
+      .question-text { font-size: 17px; }
+      .option { padding: 11px 12px; gap: 10px; }
+      .sidebar { grid-template-columns: 1fr; }
+      .panel { padding: 17px; }
+      .question-grid { grid-template-columns: repeat(10, 1fr); gap: 5px; max-height: none; overflow: visible; padding-right: 0; }
+      .q-num { border-radius: 7px; font-size: 12px; }
+      .solution { padding: 15px; }
+    }
+  
+    /* ===== LaTeX 公式字号 ===== */
+    mjx-container { font-size: 1.42em; }
+    mjx-container[display="true"] { font-size: 1.28em; }
+    .option-content mjx-container { font-size: 1.42em; }
+    .question-text { line-height: 2.05; }
+
+    /* ===== 收藏 ===== */
+    .meta-right { display: flex; align-items: center; gap: 14px; }
+    .fav-btn { white-space: nowrap; flex: 0 0 auto; }
+    .fav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 11px 4px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, color .15s, transform .15s;
+      z-index: 3;
+    }
+    .fav-btn .fav-icon { font-size: 15px; line-height: 1; color: #aab5b1; transition: color .15s; }
+    .fav-btn:hover { border-color: var(--amber); color: var(--amber); background: #fffdf6; }
+    .fav-btn:hover .fav-icon { color: var(--amber); }
+    .fav-btn.on { background: #fffdf4; border-color: #f0c94a; color: var(--muted); }
+    .fav-btn.on .fav-icon { color: #ffb400; }
+    .fav-btn:active { transform: scale(.95); }
+    .fav-switch {
+      display: flex;
+      padding: 4px;
+      background: #edf1f0;
+      border-radius: 999px;
+    }
+    .fav-toggle {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 7px 20px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .fav-toggle .fav-toggle-icon { font-size: 15px; line-height: 1; color: #b9c2bf; transition: color .15s; }
+    .fav-toggle .fav-count {
+      min-width: 20px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: #e2e8e6;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .fav-toggle:hover:not(:disabled) { background: rgba(255,255,255,.65); color: var(--text); }
+    .fav-toggle.on { background: var(--green); color: #fff; box-shadow: 0 3px 10px rgba(11,159,122,.25); }
+    .fav-toggle.on .fav-toggle-icon { color: #ffd54f; }
+    .fav-toggle.on .fav-count { background: rgba(255,255,255,.24); color: #fff; }
+    .fav-toggle:disabled { opacity: .45; cursor: not-allowed; }
+    .q-num { position: relative; }
+    .q-num.fav::after {
+      content: '★';
+      position: absolute;
+      top: -7px;
+      right: -5px;
+      font-size: 9px;
+      color: #f0b400;
+      line-height: 1;
+    }
+    .wrong-switch {
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      background: #f6eeee;
+      border-radius: 999px;
+    }
+    .wrong-clear {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 8px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: .18s;
+    }
+    .wrong-clear:hover:not(:disabled) { background: var(--red-soft); color: var(--red); }
+    .wrong-clear:disabled { opacity: .35; cursor: default; }
+    .wrong-toggle {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 7px 20px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .wrong-toggle .wrong-icon { color: var(--red); font-weight: 700; }
+    .wrong-count {
+      min-width: 20px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: #ead9d7;
+      color: #8b4a44;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .wrong-toggle.on { background: var(--red); color: #fff; box-shadow: 0 3px 10px rgba(216, 76, 76, .28); }
+    .wrong-toggle.on .wrong-icon { color: #fff; }
+    .wrong-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #fdeceb;
+      color: #b3261e;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+/* ---- 移动端左右滑动切题 ---- */
+@keyframes swipeInFromRight { from { opacity:.35; transform: translateX(38px); } to { opacity:1; transform:none; } }
+@keyframes swipeInFromLeft  { from { opacity:.35; transform: translateX(-38px); } to { opacity:1; transform:none; } }
+.question-card.swipe-anim-next { animation: swipeInFromRight .26s ease-out; }
+.question-card.swipe-anim-prev { animation: swipeInFromLeft .26s ease-out; }
+.swipe-hint { display:none; }
+@media (max-width: 820px) {
+  .swipe-hint {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    margin-top:12px; font-size:12px; color:var(--muted); letter-spacing:.04em; user-select:none;
+  }
+  .swipe-hint::before, .swipe-hint::after { content:""; width:18px; height:1px; background:var(--line); }
+}
+
+    /* ================= 计时练习 ================= */
+    .timed-start {
+      width: 100%; margin-top: 14px; border: 0; border-radius: 12px;
+      padding: 11px 14px; background: var(--green); color: #fff;
+      font-weight: 650; cursor: pointer; transition: .2s;
+    }
+    .timed-start:hover { background: var(--green-dark); }
+    .timed-start:disabled { opacity: .55; cursor: default; }
+    .timer-bar {
+      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px 9px 16px; border-radius: 999px;
+      background: rgba(20, 28, 26, .93); color: #fff;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .28);
+      z-index: 70; font-size: 13px; white-space: nowrap;
+    }
+    .timer-bar[hidden] { display: none; }
+    .timer-dot { width: 8px; height: 8px; border-radius: 50%; background: #3ddc97; animation: timedPulse 1.4s infinite; }
+    @keyframes timedPulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+    .timer-label { opacity: .65; font-size: 12px; }
+    #timerTotal { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: .5px; }
+    #timerQuestion { font-variant-numeric: tabular-nums; }
+    .timer-sep { opacity: .35; }
+    #timedFinishBtn {
+      border: 0; border-radius: 999px; background: #fff; color: #16201d;
+      padding: 6px 13px; font-weight: 650; cursor: pointer;
+    }
+    .report-mask {
+      position: fixed; inset: 0; z-index: 90; padding: 20px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(12, 18, 16, .5); backdrop-filter: blur(3px);
+    }
+    .report-mask[hidden] { display: none; }
+    .report-card {
+      width: min(880px, 100%);
+      max-height: 86vh;                       /* 老浏览器兜底 */
+      max-height: calc(100dvh - 32px);        /* 手机动态视口，保证底部圆角可见 */
+      overflow: auto;
+      background: #fff; border-radius: 20px; padding: 26px; position: relative;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .3);
+    }
+    .report-close {
+      position: absolute; right: 16px; top: 14px; width: 32px; height: 32px;
+      border: 0; border-radius: 50%; background: #eef2f1; font-size: 18px; cursor: pointer;
+    }
+    .report-card h2 { margin: 0 0 6px; font-size: 20px; }
+    .report-sub { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+    .report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .report-stat { background: #f4f8f6; border-radius: 14px; padding: 12px 14px; }
+    .report-stat strong { display: block; font-size: 19px; }
+    .report-stat span { font-size: 12px; color: var(--muted); }
+    .report-list { display: flex; flex-direction: column; gap: 6px; }
+    .report-row {
+      display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto;
+      gap: 10px; align-items: center; width: 100%;
+      padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px;
+      background: #fff; color: var(--text); font-size: 13px; text-align: left; cursor: pointer;
+    }
+    .report-row:hover { border-color: #bfd8d0; background: #f7fbf9; }
+    .report-row.slow { background: #fff7ec; border-color: #f3d9b5; }
+    .report-row .rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .report-row .when { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+    .report-row .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #ffe9c7; color: #8a5a00; white-space: nowrap; }
+    .report-row .badge.ok { background: #e2f4ec; color: #0b7a5c; }
+    .report-row .badge.bad { background: #fde6e4; color: #b3261e; }
+    .report-empty { padding: 28px; text-align: center; color: var(--muted); font-size: 13px; border: 1px dashed var(--line); border-radius: 14px; }
+    .report-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+    .report-actions button { border: 0; border-radius: 12px; padding: 10px 18px; cursor: pointer; font-weight: 600; }
+    #reportRestart { background: var(--green); color: #fff; }
+    #reportDone { background: #edf1f0; color: var(--text); }
+    @media (max-width: 580px) {
+      .timer-bar { bottom: 12px; font-size: 12px; padding: 8px 10px 8px 13px; gap: 7px; }
+      .report-card { padding: 18px 14px; border-radius: 16px; }
+      .report-row { grid-template-columns: 28px minmax(0, 1fr) auto; }
+      .report-row .badge { display: none; }
+    }
+
+    /* ================= 开始界面（磨砂玻璃） ================= */
+    .start-mask {
+      position: fixed; inset: 0; z-index: 88;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+      background: rgba(238, 244, 242, .55);
+      -webkit-backdrop-filter: blur(16px) saturate(1.15);
+      backdrop-filter: blur(16px) saturate(1.15);
+      animation: startFadeIn .28s ease both;
+    }
+    .start-mask[hidden] { display: none; }
+    @keyframes startFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .start-panel {
+      width: min(400px, 100%); padding: 36px 30px 28px; text-align: center;
+      background: rgba(255, 255, 255, .78); border: 1px solid rgba(255, 255, 255, .85);
+      border-radius: 26px; box-shadow: 0 26px 70px rgba(18, 46, 38, .18);
+    }
+    .start-icon {
+      width: 62px; height: 62px; margin: 0 auto 18px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 22px; color: #fff;
+      background: linear-gradient(135deg, #12b08a, #0a8f6f);
+      box-shadow: 0 10px 24px rgba(11, 159, 122, .32);
+    }
+    .start-panel h2 { margin: 0 0 8px; font-size: 21px; }
+    .start-panel p { margin: 0 0 24px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .start-btn {
+      width: 100%; border: 0; border-radius: 999px; padding: 14px 20px;
+      font-size: 17px; font-weight: 700; color: #fff; cursor: pointer;
+      background: linear-gradient(135deg, #12b08a, #0a8f6f);
+      box-shadow: 0 12px 26px rgba(11, 159, 122, .28);
+      transition: transform .15s, box-shadow .2s;
+    }
+    .start-btn:hover { transform: translateY(-1px); box-shadow: 0 16px 30px rgba(11, 159, 122, .32); }
+    .start-skip-btn {
+      width: 100%; margin-top: 12px; border: 1px solid var(--line);
+      border-radius: 999px; padding: 13px 20px; background: #fff;
+      color: var(--muted); font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: .18s;
+    }
+    .start-skip-btn:hover, .start-skip-btn:active, .start-skip-btn:focus { color: var(--muted); border-color: #cbdcd6; background: #f7fbf9; outline: none; }
+    @media (max-width: 580px) {
+      .start-panel { padding: 30px 22px 22px; border-radius: 22px; }
+    }
+
+    @media (max-width: 580px) {
+      .question-meta .counter { font-size: 18px; }
+      .question-meta .counter strong { font-size: 18px; }
+      .fav-btn { padding: 3px 9px 3px 8px; font-size: 11px; }
+      .timer-chip { font-size: 11px; }
+    }
+
+    .math-loading {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 60; display: none; align-items: center; gap: 10px;
+      padding: 12px 20px; border-radius: 999px;
+      background: rgba(255, 255, 255, .94); border: 1px solid var(--line);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
+      color: var(--muted); font-size: 13px; white-space: nowrap;
+    }
+    body:not(.math-ready) .math-loading { display: flex; }
+    body:not(.math-ready) .question-card { visibility: hidden; }
+    .math-spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #cfe3dc; border-top-color: var(--green);
+      animation: mathSpin .8s linear infinite;
+    }
+    @keyframes mathSpin { to { transform: rotate(360deg); } }
+</style>
+  <link rel="preload" as="script" href="mathjax.js">
+</head>
+<body>
+  <div class="math-loading" id="mathLoading"><span class="math-spinner"></span><span id="mathLoadingText">公式加载中…</span></div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div>
+          <h1>自动控制原理</h1>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="layout">
+      <section class="card question-card" id="questionCard" aria-live="polite"></section>
+      <aside class="sidebar">
+        <div class="mode-switch" role="group" aria-label="学习模式">
+          <button class="mode-btn active" data-mode="answer" type="button">答题模式</button>
+          <button class="mode-btn" data-mode="recite" type="button">背题模式</button>
+        </div>
+        <div class="mode-switch order-switch" id="orderSwitch" role="group" aria-label="答题顺序">
+          <button class="order-btn active" data-order="sequential" type="button">正序</button>
+          <button class="order-btn" data-order="random" type="button">乱序</button>
+        </div>
+        <div class="fav-switch">
+          <button class="fav-toggle" id="favPracticeBtn" type="button" disabled title="还没有收藏的题目">
+            <span class="fav-toggle-icon">☆</span><span>收藏夹</span><span class="fav-count" id="favCount">0</span>
+          </button>
+        </div>
+        <div class="wrong-switch">
+          <button class="wrong-toggle" id="wrongPracticeBtn" type="button" disabled title="还没有错题">
+            <span class="wrong-icon">✗</span><span>错题集</span><span class="wrong-count" id="wrongCount">0</span>
+          </button>
+          <button class="wrong-clear" id="wrongClearBtn" type="button" disabled title="清空错题集">清空</button>
+        </div>
+        <section class="card panel">
+          <h2 class="panel-title">本次练习 <span id="modeLabel">答题模式</span></h2>
+          <div class="stats">
+            <div class="stat"><strong id="answeredStat">0</strong><span>已答</span></div>
+            <div class="stat"><strong id="correctStat">0</strong><span>答对</span></div>
+            <div class="stat"><strong id="rateStat">—</strong><span>正确率</span></div>
+          </div>
+          <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+          <div class="progress-text"><span>完成进度</span><span id="progressText">0 / 117</span></div>
+          <button class="timed-start" id="timedStartBtn" type="button">开始计时练习</button>
+          <button class="reset" id="resetBtn" type="button">清空记录，重新练习</button>
+        </section>
+        <section class="card panel">
+          <h2 class="panel-title">题目导航</h2>
+          <div class="question-grid" id="questionGrid"></div>
+          <div class="legend">
+            <span><i class="dot done"></i>答对</span>
+            <span><i class="dot error"></i>答错</span>
+            <span><i class="dot"></i>未答</span>
+          </div>
+        </section>
+      </aside>
+    </div>
+    
+  </main>
+
+  <div class="start-mask" id="startMask">
+    <div class="start-panel">
+      <div class="start-icon">▶</div>
+      <h2>开始刷题</h2>
+      <p>点击开始后计时从 0s 起，每道题会单独记录用时；随时可以点「结束」生成报告。</p>
+      <button class="start-btn" id="startBtn" type="button">开始</button>
+      <button class="start-skip-btn" id="startSkipBtn" type="button">先随便看看，不计时</button>
+    </div>
+  </div>
+
+  <div class="report-mask" id="reportMask" hidden>
+    <div class="report-card" role="dialog" aria-modal="true" aria-label="计时练习报告">
+      <button class="report-close" id="reportCloseBtn" type="button" aria-label="关闭">×</button>
+      <h2>计时练习报告</h2>
+      <p class="report-sub">用时越长的题目越不熟悉，列表已按用时从长到短排列；点击任意一行可跳回去复习。</p>
+      <div class="report-summary" id="reportSummary"></div>
+      <div class="report-list" id="reportList"></div>
+      <div class="report-actions">
+        <button id="reportRestart" type="button">再练一次</button>
+        <button id="reportDone" type="button">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] },
+  svg: { fontCache: 'local' },
+  startup: { typeset: false }
+};
+</script>
+<script defer src="mathjax.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.bootcdn.net/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js';document.head.appendChild(s);})()"></script>
+<script>
+    const frac = (n, d) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+    const sqrt = n => `<span class="sqrt">√<span>${n}</span></span>`;
+    const wn = 'ω<sub>n</sub>';
+    const xi = 'ξ';
+    const damped = `${wn}${sqrt(`1 − ${xi}<sup>2</sup>`)}`;
+
+    const questions = [
+  {
+    "topic": "二阶系统时域分析",
+    "stem": "欠阻尼二阶系统上升时间 <span class=\"math\">\\(t_{r}\\)</span> 的表达式是（　）",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(\\frac{π}{ω_{n}\\sqrt{1 − ξ^{2}}}\\)</span>"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(\\frac{(π − β)}{ω_{n}\\sqrt{1 − ξ^{2}}}\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(\\frac{3}{ξω_{n}}\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(e^{\\frac{−πξ}{\\sqrt{1 − ξ^{2}}}} × 100\\%\\)</span>"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>欠阻尼二阶系统的上升时间，是单位阶跃响应<strong>第一次到达稳态值</strong>所需的时间。记阻尼振荡频率 <span class=\"math\">\\(ω_{d} = ω_{n}\\sqrt{1 − ξ^{2}}\\)</span>，且 <span class=\"math\">\\(β = arccos ξ\\)</span>，则：</p><div class=\"formula-box math\">\\[t_{r} = \\frac{π − β}{ω_{d}} = \\frac{π − β}{ω_{n}\\sqrt{1 − ξ^{2}}}\\]</div><p><strong>辨项：</strong>其余三个选项分别是峰值时间 <span class=\"math\">\\(t_{p}\\)</span>、5% 误差带下调节时间的近似式、超调量公式。</p>"
+  },
+  {
+    "topic": "根轨迹",
+    "stem": "<span class=\"math\">\\(G(s) = \\frac{10(s + 1)(s + 2)(s + 3)}{s(s + 3)(s + 4)}\\)</span>，关于根轨迹终点说法正确的是（　）",
+    "options": [
+      [
+        "A",
+        "在 s = −1，s = −2"
+      ],
+      [
+        "B",
+        "在 s = −3，s = −4"
+      ],
+      [
+        "C",
+        "不在 s = −1，s = −2"
+      ],
+      [
+        "D",
+        "全部趋向无穷远"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>先约去零极点公因子 <span class=\"math\">\\((s + 3)\\)</span>：开环极点为 <span class=\"math\">\\(0、−4\\)</span>，有限零点为 <span class=\"math\">\\(−1、−2\\)</span>，极点数等于零点数，两条分支分别终止于有限零点。</p><p>所以根轨迹终点在 <span class=\"math\">\\(s = −1、s = −2\\)</span>；被对消的 <span class=\"math\">\\(−3\\)</span> 不是有效极点或零点，<span class=\"math\">\\(−4\\)</span> 是起点而不是终点。</p>"
+  },
+  {
+    "topic": "频域稳定性",
+    "stem": "频率特性稳定判据为（　）",
+    "options": [
+      [
+        "A",
+        "劳斯判据"
+      ],
+      [
+        "B",
+        "奈奎斯特判据"
+      ],
+      [
+        "C",
+        "终值定理"
+      ],
+      [
+        "D",
+        "叠加原理"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>奈奎斯特判据</strong>利用开环频率特性曲线对临界点 <span class=\"math\">\\((−1, j0)\\)</span> 的包围情况判断闭环稳定性，属于频域判据。</p><p><strong>辨项：</strong>劳斯判据根据特征方程系数判断稳定性，属于代数判据；终值定理用于求稳态值；叠加原理是线性系统的基本性质。</p>"
+  },
+  {
+    "topic": "动态结构图",
+    "stem": "系统的动态结构图一般由四种基本符号组成，下列哪一项不是动态结构图的组成部分（　）",
+    "options": [
+      [
+        "A",
+        "引出点"
+      ],
+      [
+        "B",
+        "综合点"
+      ],
+      [
+        "C",
+        "方框"
+      ],
+      [
+        "D",
+        "反馈点"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p>动态结构图的四种基本组成是：<strong>信号线、方框、综合点（相加点）、引出点</strong>。</p><p>反馈是通过信号线、方框及综合点共同形成的连接关系，并不存在一种独立命名为“反馈点”的基本符号，因此选“反馈点”那一项。</p>"
+  },
+  {
+    "topic": "稳态误差",
+    "stem": "Ⅱ型系统，输入为速度信号 <span class=\"math\">\\(r(t) = Vt\\)</span> 下的稳态误差 <span class=\"math\">\\(e_{ss}\\)</span> 等于（　）",
+    "options": [
+      [
+        "A",
+        "无穷大"
+      ],
+      [
+        "B",
+        "常数"
+      ],
+      [
+        "C",
+        "0"
+      ],
+      [
+        "D",
+        "随时间增大"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p>系统型别就是开环传递函数中积分环节 <span class=\"math\">\\(\\frac{1}{s}\\)</span> 的个数。Ⅱ型系统含有两个积分环节，对斜坡（速度）输入的稳态跟随误差为 0。</p><div class=\"formula-box\">速度输入下：0 型系统误差为 ∞；Ⅰ型系统误差为非零常数；Ⅱ型系统误差为 0。</div><p>该结论以<strong>闭环系统稳定</strong>为前提。</p>"
+  },
+  {
+    "topic": "伯德图",
+    "stem": "绘制伯德图，是改变什么参数（　）",
+    "options": [
+      [
+        "A",
+        "系统增益"
+      ],
+      [
+        "B",
+        "输入信号频率"
+      ],
+      [
+        "C",
+        "阻尼比"
+      ],
+      [
+        "D",
+        "时间常数"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>令 <span class=\"math\">\\(s = jω\\)</span>，不断改变输入正弦信号的角频率 <span class=\"math\">\\(ω\\)</span>，分别计算幅值 <span class=\"math\">\\(|G(jω)|\\)</span> 与相角 <span class=\"math\">\\(∠G(jω)\\)</span>，即可绘制对数幅频、相频特性曲线。</p><p>伯德图的横轴是按对数刻度的<strong>频率</strong>，系统本身的增益、阻尼比和时间常数在绘制某一给定系统的伯德图时保持固定。</p>"
+  },
+  {
+    "topic": "幅值裕度",
+    "stem": "关于最小相位系统幅值裕度描述正确的是（　）",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(k_{g} &gt; 1\\)</span> 不稳定，<span class=\"math\">\\(k_{g} &lt; 1\\)</span> 稳定"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(k_{g} &gt; 1\\)</span> 稳定，<span class=\"math\">\\(k_{g} &lt; 1\\)</span> 不稳定"
+      ],
+      [
+        "C",
+        "幅值裕度跟稳定性无关"
+      ],
+      [
+        "D",
+        "幅值裕度越大稳定性越差"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>在相位穿越频率 <span class=\"math\">\\(ω_{x}\\)</span> 处，开环相角为 <span class=\"math\">\\(−180°\\)</span>，幅值裕度为：</p><div class=\"formula-box math\">\\[k_{g} = \\frac{1}{|G(jω_{x})H(jω_{x})|}\\]</div><p>按本题适用的最小相位系统常规判据，<span class=\"math\">\\(k_{g} &gt; 1\\)</span> 时增益还有增大余量，闭环稳定；<span class=\"math\">\\(k_{g} &lt; 1\\)</span> 时不稳定；<span class=\"math\">\\(k_{g} = 1\\)</span> 时处于临界状态。</p>"
+  },
+  {
+    "topic": "PID 校正",
+    "stem": "PID 控制器是____在系统前向通道中的，因而起着串联校正的作用。",
+    "options": [
+      [
+        "A",
+        "并联校正"
+      ],
+      [
+        "B",
+        "串联校正"
+      ],
+      [
+        "C",
+        "反馈校正"
+      ],
+      [
+        "D",
+        "前馈校正"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>PID 控制器通常接在偏差信号之后、被控对象之前，与被控对象位于同一前向通道并依次串联，因此属于<strong>串联校正</strong>。</p><div class=\"formula-box math\">\\[G_{c}(s) = K_{p}(1 + \\frac{1}{T_{i}s} + T_{d}s)\\]</div><p>判断校正方式先看<strong>接入位置</strong>：前向通道串联为串联校正；包围局部环节形成内回路为反馈校正；沿扰动或输入另设补偿通道则可能是前馈校正。</p>"
+  },
+  {
+    "topic": "相角裕度",
+    "stem": "控制系统一般要求相角裕度 <span class=\"math\">\\(γ\\)</span> 的工程范围是（　）",
+    "options": [
+      [
+        "A",
+        "10°～30°"
+      ],
+      [
+        "B",
+        "30°～60°"
+      ],
+      [
+        "C",
+        "70°～90°"
+      ],
+      [
+        "D",
+        "90°～120°"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>工程上通常取相角裕度 <strong>30°～60°</strong>，用于兼顾相对稳定性与动态响应速度。</p><div class=\"formula-box math\">\\[γ = 180° + ∠G(jω_{c})H(jω_{c})\\]</div><p>其中 <span class=\"math\">\\(ω_{c}\\)</span> 是幅值穿越频率。相角裕度过小，响应容易振荡、超调较大；过大则可能使响应迟缓。</p>"
+  },
+  {
+    "topic": "采样系统",
+    "stem": "采样系统常用的采样保持器为（　）",
+    "options": [
+      [
+        "A",
+        "零阶保持器"
+      ],
+      [
+        "B",
+        "一阶保持器"
+      ],
+      [
+        "C",
+        "二阶保持器"
+      ],
+      [
+        "D",
+        "三阶保持器"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>零阶保持器</strong>把当前采样值保持一个采样周期不变，结构最简单、易于实现，是采样系统中最常用的保持器（传递函数 <span class=\"math\">\\(G_{h}(s) = \\frac{1 − e^{−Ts}}{s}\\)</span>）。</p><p><strong>一阶保持器</strong>利用相邻两个采样值作线性外推，复现精度较高，但滞后更大、实现更复杂，实际应用远少于零阶保持器。</p>"
+  },
+  {
+    "topic": "线性系统性质",
+    "stem": "线性系统具有________和________。",
+    "options": [
+      [
+        "A",
+        "叠加性、齐次性"
+      ],
+      [
+        "B",
+        "叠加性、因果性"
+      ],
+      [
+        "C",
+        "齐次性、稳定性"
+      ],
+      [
+        "D",
+        "能控性、能观性"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>齐次性：</strong>输入扩大为原来的若干倍，输出也按相同比例变化；<strong>叠加性：</strong>多个输入共同作用产生的响应，等于各输入单独作用时响应的代数和。</p><p>同时满足齐次性与叠加性，也就是满足线性叠加原理。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "二阶系统指标",
+    "stem": "欠阻尼二阶系统超调量：<span class=\"math\">\\(σ\\% =\\)</span> ________；峰值时间：<span class=\"math\">\\(t_{p} =\\)</span> ________。",
+    "answer": "超调量与峰值时间公式",
+    "answerHtml": "<span class=\"math\">\\(σ\\% = e^{\\frac{−πξ}{\\sqrt{1 − ξ^{2}}}} × 100\\%\\)</span>；<span class=\"math\">\\(t_{p} = \\frac{π}{ω_{n}\\sqrt{1 − ξ^{2}}}\\)</span>",
+    "analysis": "<p>两个公式都可由欠阻尼二阶系统的单位阶跃响应推导。超调量只由阻尼比 <span class=\"math\">\\(ξ\\)</span> 决定，峰值时间与阻尼振荡频率 <span class=\"math\">\\(ω_{d}\\)</span> 成反比。</p><div class=\"formula-box math\">\\[ω_{d} = ω_{n}\\sqrt{1 − ξ^{2}}，　t_{p} = \\frac{π}{ω_{d}}\\]</div><p>记忆时把超调量与“第一个峰值超出稳态值的程度”联系起来，把峰值时间与“第一次到达峰值的时刻”联系起来。</p>"
+  },
+  {
+    "topic": "极点与稳定性",
+    "stem": "极点位于复平面________，系统不稳定。",
+    "options": [
+      [
+        "A",
+        "右半平面"
+      ],
+      [
+        "B",
+        "虚轴上"
+      ],
+      [
+        "C",
+        "左半平面"
+      ],
+      [
+        "D",
+        "单位圆内"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>连续时间线性定常系统：闭环极点全部在 <strong>左半平面</strong>（实部为负）时渐近稳定；只要有极点落在 <strong>右半平面</strong>，对应响应分量随时间发散，系统不稳定。</p><p>虚轴上的极点对应临界情况（等幅振荡），不能算“稳定”。本题问“系统不稳定”，应填右半平面。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "典型环节频率特性",
+    "stem": "积分环节幅频特性：<span class=\"math\">\\(A(ω) =\\)</span> ________；惯性环节幅频特性：<span class=\"math\">\\(A(ω) =\\)</span> ________。",
+    "answer": "积分环节与惯性环节的幅频公式",
+    "answerHtml": "积分环节：<span class=\"math\">\\(A(ω) = \\frac{1}{ω}\\)</span>；　惯性环节：<span class=\"math\">\\(A(ω) = \\frac{1}{\\sqrt{1 + ω^{2}T^{2}}}\\)</span>。",
+    "analysis": "<p>令 <span class=\"math\">\\(s = jω\\)</span>，再取传递函数的模即可得到幅频特性。</p><div class=\"formula-box\">积分环节：<span class=\"math\">\\(G(s) = \\frac{1}{s}　→　|G(jω)| = \\frac{1}{ω}\\)</span><br>惯性环节：<span class=\"math\">\\(G(s) = \\frac{1}{Ts + 1}　→　|G(jω)| = \\frac{1}{\\sqrt{1 + ω^{2}T^{2}}}\\)</span></div><p>积分环节幅值随频率升高而减小；惯性环节在低频时幅值约为 1，高频时近似按 <span class=\"math\">\\(\\frac{1}{ωT}\\)</span> 衰减。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "相角裕度",
+    "stem": "相角裕度公式：<span class=\"math\">\\(γ =\\)</span> ________。",
+    "answer": "φ(ωc)＋180°",
+    "answerHtml": "<span class=\"math\">\\(γ = φ(ω_{c}) + 180°\\)</span>",
+    "analysis": "<p><span class=\"math\">\\(ω_{c}\\)</span> 是<strong>幅值穿越频率</strong>，此时开环幅频特性穿过 0 dB，即 <span class=\"math\">\\(|G(jω_{c})H(jω_{c})| = 1\\)</span>。</p><p>把该频率下的开环相角 <span class=\"math\">\\(φ(ω_{c})\\)</span> 与 <span class=\"math\">\\(−180°\\)</span> 临界相角比较，就得到 <span class=\"math\">\\(γ = φ(ω_{c}) + 180°\\)</span>。</p>"
+  },
+  {
+    "topic": "复极点与响应",
+    "stem": "二阶系统闭环极点表达式中的 β 称为________，极点虚部代表系统输出相应的________。",
+    "options": [
+      [
+        "A",
+        "阻尼角（β = arccos ζ）、振荡频率"
+      ],
+      [
+        "B",
+        "调节时间、衰减速度"
+      ],
+      [
+        "C",
+        "阻尼比、稳态误差"
+      ],
+      [
+        "D",
+        "峰值时间、相位裕度"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>共轭复极点写作 <span class=\"math\">\\(s = −ζω_{n} ± jω_{n}\\sqrt{1 − ζ}^{2})\\)</span>：β 是极点向径与负实轴的夹角，即<strong>阻尼角</strong>，满足 <span class=\"math\">\\(β = arccos ζ\\)</span>，β 越大 ζ 越小、超调越大。</p><p><strong>虚部</strong> <span class=\"math\">\\(ω_{d} = ω_{n}\\sqrt{1 − ζ}^{2})\\)</span> 是阻尼振荡角频率，决定输出振荡的快慢；实部绝对值 <span class=\"math\">\\(ζω_{n}\\)</span> 反映衰减速度。</p>"
+  },
+  {
+    "topic": "伯德图",
+    "stem": "伯德图对数幅频特性的纵坐标是（　）。",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(10 lg A(ω)\\)</span>"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(20 lg A(ω)\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(lg A(ω)\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(φ(ω)\\)</span>"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>这里指的是伯德图的<strong>对数幅频特性</strong>，纵坐标为 <span class=\"math\">\\(L(ω) = 20 lg A(ω)\\)</span>，单位是分贝（dB），横轴通常采用对数频率刻度。</p><p>注意伯德图还包括相频特性，其纵坐标是相角 <span class=\"math\">\\(φ(ω)\\)</span>，通常以度为单位。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "根轨迹实轴区段",
+    "stem": "某系统开环传递函数为 <span class=\"math\">\\(G(s)H(s) = \\frac{K}{s(s + 2)(s + 4)}\\)</span>（<span class=\"math\">\\(K &gt; 0\\)</span>），则其实轴上的根轨迹段为________。",
+    "answer": "(−2,0) 与 (−∞,−4)",
+    "analysis": "<p>实轴根轨迹段的判据：某点右侧开环实极点与实零点总数为<strong>奇数</strong>时，该点所在区段属于根轨迹。</p><p>极点为 <span class=\"math\">\\(0、−2、−4\\)</span>：在 <span class=\"math\">\\((−2,0)\\)</span> 内右侧只有 0（1 个，奇数）→ 是；在 <span class=\"math\">\\((−4,−2)\\)</span> 内右侧有 0、−2（2 个，偶数）→ 不是；在 <span class=\"math\">\\((−∞,−4)\\)</span> 内右侧有 0、−2、−4（3 个，奇数）→ 是。</p>",
+    "answerHtml": "某系统开环传递函数为 <span class=\"math\">\\(G(s)H(s) = \\frac{K}{s(s + 2)(s + 4)}\\)</span>（<span class=\"math\">\\(K &gt; 0\\)</span>），则其实轴上的根轨迹段为<strong>(−2,0) 与 (−∞,−4)</strong>。"
+  },
+  {
+    "topic": "校正装置分类",
+    "stem": "按校正装置的构成元件分类，校正装置可分为________、________。",
+    "options": [
+      [
+        "A",
+        "串联、反馈"
+      ],
+      [
+        "B",
+        "前馈、复合"
+      ],
+      [
+        "C",
+        "比例、积分"
+      ],
+      [
+        "D",
+        "有源、无源"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p>按<strong>构成元件</strong>分类：由电阻、电容、电感等无源元件构成的是<strong>无源校正装置</strong>；含运算放大器等有源器件的是<strong>有源校正装置</strong>。</p><p>按<strong>连接方式</strong>分类则是串联校正、反馈校正、前馈校正与复合校正，注意不要与本题的分类维度混淆。</p>"
+  },
+  {
+    "topic": "离散系统",
+    "stem": "离散系统数学描述为________。",
+    "options": [
+      [
+        "A",
+        "微分方程"
+      ],
+      [
+        "B",
+        "差分方程"
+      ],
+      [
+        "C",
+        "代数方程"
+      ],
+      [
+        "D",
+        "积分方程"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>连续时间系统通常用微分方程描述，离散时间系统通常用<strong>差分方程</strong>描述，它直接表达当前及过去输出与当前及过去输入之间的关系。</p><div class=\"formula-box math\">\\[y(k) + a_{1}y(k − 1) + ··· + a_{n}y(k − n) = b_{0}u(k) + ··· + b_{m}u(k − m)\\]</div><p>对差分方程作 Z 变换，还可进一步得到离散系统的脉冲传递函数。</p>"
+  },
+  {
+    "topic": "稳定性定义",
+    "stem": "稳定性是指（　）。",
+    "options": [
+      [
+        "A",
+        "系统受到外作用后，动态过程的振荡倾向和系统恢复平衡状态的能力"
+      ],
+      [
+        "B",
+        "系统输出对输入响应的快慢以及动态过程持续时间的长短"
+      ],
+      [
+        "C",
+        "系统在一定外部信号作用下所具有的稳态精度"
+      ],
+      [
+        "D",
+        "系统对高频测量噪声的滤除能力"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>稳定性</strong>关注系统受到扰动或其他外作用后，能否最终恢复平衡状态。对渐近稳定系统，扰动消失后，系统会随时间推移回到原来的平衡状态。</p><p>响应快慢属于快速性，稳态精度属于准确性，不要把三个基本性能指标混淆。</p>"
+  },
+  {
+    "topic": "快速性定义",
+    "stem": "快速性是指（　）。",
+    "options": [
+      [
+        "A",
+        "系统在一定外部信号作用下所具有的稳态精度"
+      ],
+      [
+        "B",
+        "系统受到扰动后恢复原有平衡状态的能力"
+      ],
+      [
+        "C",
+        "系统输出 c(t) 对输入 r(t) 响应的快慢，反映系统动态过程持续时间的长短"
+      ],
+      [
+        "D",
+        "系统开环频率特性对高频噪声的衰减程度"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>快速性</strong>描述系统响应输入或扰动的速度，也就是动态过程持续多长时间。上升时间、峰值时间和调节时间都是常用的快速性指标。</p><p>恢复平衡状态的能力主要对应稳定性，稳态误差大小则对应准确性。</p>"
+  },
+  {
+    "topic": "准确性定义",
+    "stem": "准确性是指（　）。",
+    "options": [
+      [
+        "A",
+        "系统输出对输入响应的快慢"
+      ],
+      [
+        "B",
+        "系统受到扰动后恢复平衡状态的能力"
+      ],
+      [
+        "C",
+        "系统动态过程中振荡程度的相对大小"
+      ],
+      [
+        "D",
+        "系统在一定外部信号作用下所具有的稳态精度"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p><strong>准确性</strong>主要用稳态误差衡量，即系统达到稳态后，期望输出与实际输出之间的偏差。</p><p>稳态误差越小，通常说明系统跟踪给定输入或抑制恒定扰动的稳态精度越高。</p>"
+  },
+  {
+    "topic": "超前校正",
+    "stem": "超前校正是指（　）。",
+    "options": [
+      [
+        "A",
+        "利用超前网络相角超前特性，提高相角裕度，改善系统动态性能"
+      ],
+      [
+        "B",
+        "利用超前网络相角超前特性，主要增加系统型别并消除稳态误差"
+      ],
+      [
+        "C",
+        "利用滞后网络相角滞后特性，缩短系统调节时间并提高响应速度"
+      ],
+      [
+        "D",
+        "利用反馈网络高频衰减特性，直接改变输入信号的函数形式"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>超前校正装置在适当频段提供<strong>正的相角</strong>，可补偿原系统的相角滞后，提高相角裕度和阻尼，通常有利于减小超调并加快响应。</p><p>记忆主线是：<strong>相角超前 → 相角裕度提高 → 动态性能改善</strong>。改善稳态精度通常不是超前校正的主要目的。</p>"
+  },
+  {
+    "topic": "稳态误差影响因素",
+    "stem": "系统的稳态误差主要由（　）共同确定。",
+    "options": [
+      [
+        "A",
+        "阻尼比、无阻尼自然频率、输出初值"
+      ],
+      [
+        "B",
+        "系统带宽、相角裕度、采样周期"
+      ],
+      [
+        "C",
+        "闭环零点、极点实部、扰动方向"
+      ],
+      [
+        "D",
+        "系统型别、开环增益、输入信号形式"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p>稳态误差的三条判断主线是：<strong>系统型别、开环增益、输入信号形式</strong>。系统型别决定能无静差跟踪哪一类典型输入，开环增益影响误差的大小。</p><p>阶跃、斜坡、抛物线输入可分别结合位置、速度、加速度误差系数分析。</p>"
+  },
+  {
+    "topic": "连续系统稳定条件",
+    "stem": "线性定常系统稳定的充分必要条件是闭环传递函数的所有极点必须在 s 平面的（　）。",
+    "options": [
+      [
+        "A",
+        "右半平面"
+      ],
+      [
+        "B",
+        "左半平面"
+      ],
+      [
+        "C",
+        "虚轴上"
+      ],
+      [
+        "D",
+        "单位圆内"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>对连续时间线性定常系统，<strong>全部闭环极点具有负实部</strong>，即都位于 s 平面左半平面，系统才是渐近稳定的。</p><p>右半平面极点会产生随时间增长的响应分量；“单位圆内”是离散系统 z 域稳定性的常用判据，不要混用。</p>"
+  },
+  {
+    "topic": "增益裕度",
+    "stem": "当 <span class=\"math\">\\(K_{g} &gt; 1\\)</span> 时，系统是（　）。",
+    "options": [
+      [
+        "A",
+        "不稳定"
+      ],
+      [
+        "B",
+        "临界稳定"
+      ],
+      [
+        "C",
+        "稳定"
+      ],
+      [
+        "D",
+        "无法仅凭此条件判断"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p>本题按常规负反馈、开环稳定系统判断。Kg 表示增益裕度：<span class=\"math\">\\(Kg &gt; 1\\)</span> 说明增益还有增大余量，闭环稳定；<span class=\"math\">\\(Kg &lt; 1\\)</span> 时闭环不稳定，<span class=\"math\">\\(Kg = 1\\)</span> 为临界状态。</p><p>严格说，频率域裕度判稳还需结合开环极点及 Nyquist 判据的使用前提，单独一个增益裕度数值并不能覆盖所有系统。</p>"
+  },
+  {
+    "topic": "线性系统性质",
+    "stem": "关于线性系统的性质，下列说法正确的是（　）。",
+    "options": [
+      [
+        "A",
+        "只满足叠加性，不满足齐次性"
+      ],
+      [
+        "B",
+        "同时满足齐次性和叠加性"
+      ],
+      [
+        "C",
+        "只满足齐次性，不满足叠加性"
+      ],
+      [
+        "D",
+        "输出与输入幅值无关"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>线性系统必须同时满足<strong>齐次性</strong>与<strong>叠加性</strong>：输入扩大若干倍，输出也扩大相同倍数；多个输入共同作用的响应等于各输入单独作用时响应之和。</p><p>只满足其中一条或两条都不满足的系统都不是线性系统。</p>"
+  },
+  {
+    "topic": "根轨迹终点",
+    "stem": "根轨迹的终点是（　）。",
+    "options": [
+      [
+        "A",
+        "开环极点，所有分支均终止于有限极点"
+      ],
+      [
+        "B",
+        "闭环极点，所有分支均终止于闭环极点"
+      ],
+      [
+        "C",
+        "无穷零点，所有分支均终止于无穷远"
+      ],
+      [
+        "D",
+        "有限零点，富余分支趋向无穷远"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p>根轨迹从<strong>开环极点</strong>出发，终止于<strong>开环零点</strong>。若开环有 n 个极点、m 个有限零点且 n &gt; m，则有 m 条分支终止于有限零点，其余 n − m 条分支沿渐近线趋向无穷远。</p><p>因此可记为：“起点看极点，终点看零点，不够的分支去无穷远。”</p>"
+  },
+  {
+    "topic": "采样系统数学工具",
+    "stem": "采样系统分析是以________作为数学模型，用________变换作为求解工具。",
+    "options": [
+      [
+        "A",
+        "微分方程、拉普拉斯"
+      ],
+      [
+        "B",
+        "差分方程、Z"
+      ],
+      [
+        "C",
+        "差分方程、傅里叶"
+      ],
+      [
+        "D",
+        "微分方程、Z"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>采样系统处理离散时刻的信号，通常以<strong>差分方程</strong>描述输入、输出序列之间的关系，并用 <strong>Z 变换</strong>求解和分析。</p><p>对应记忆：连续系统常用“微分方程＋拉普拉斯变换”，离散系统常用“差分方程＋Z 变换”。</p>"
+  },
+  {
+    "topic": "对数幅频特性",
+    "stem": "对数幅频特性曲线的纵坐标为（　）。",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(φ(ω)\\)</span>"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(10 lg A(ω)\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(20 lg A(ω)\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(lg A(ω)\\)</span>"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p>对数幅频特性定义为 <span class=\"math\">\\(L(ω) = 20 lg A(ω)\\)</span>，单位为分贝（dB）；其中 <span class=\"math\">\\(A(ω)\\)</span> 是幅频特性。</p><p><span class=\"math\">\\(φ(ω)\\)</span> 是相频特性；<span class=\"math\">\\(10 lg A(ω)\\)</span> 混淆了幅值与功率比取对数时的系数。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "二阶系统动态指标",
+    "stem": "二阶欠阻尼系统的超调量 <span class=\"math\">\\(σ\\% =\\)</span> ________；峰值时间 <span class=\"math\">\\(t_{p} =\\)</span> ________；上升时间 <span class=\"math\">\\(t_{r} =\\)</span> ________。",
+    "answer": "三个动态指标公式",
+    "answerHtml": "<span class=\"math\">\\(σ\\% = e^{\\frac{−πξ}{\\sqrt{1−ξ²}}} × 100\\%\\)</span><br><span class=\"math\">\\(t_{p} = \\frac{π}{ω_{n}\\sqrt{1−ξ²}}\\)</span><br><span class=\"math\">\\(t_{r} = \\frac{π−β}{ω_{n}\\sqrt{1−ξ²}}\\)</span>",
+    "analysis": "<p>令阻尼振荡频率 <span class=\"math\">\\(ω_{d} = ω_{n}\\sqrt{1−ξ²}\\)</span>，则峰值时间为 <span class=\"math\">\\(t_{p} = \\frac{π}{ω_{d}}\\)</span>，上升时间为 <span class=\"math\">\\(t_{r} = \\frac{π−β}{ω_{d}}\\)</span>，其中 <span class=\"math\">\\(β = arccos ξ\\)</span>。</p><p>超调量只由阻尼比 ξ 决定；峰值时间和上升时间还受无阻尼自然频率 ω<sub>n</sub> 影响。</p>"
+  },
+  {
+    "topic": "奈奎斯特稳定判据",
+    "stem": "在判别系统稳定性的方法中，（　）判据是在频率特性法中分析系统稳定性的判据。",
+    "options": [
+      [
+        "A",
+        "劳斯"
+      ],
+      [
+        "B",
+        "奈奎斯特"
+      ],
+      [
+        "C",
+        "赫尔维茨"
+      ],
+      [
+        "D",
+        "李亚普诺夫"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>奈奎斯特稳定判据</strong>利用开环幅相频率特性曲线包围临界点 (−1, j0) 的情况，结合开环右半平面极点数判断闭环稳定性。</p><p>劳斯、赫尔维茨判据属于代数判据；李亚普诺夫方法基于状态空间和能量函数思想。</p>"
+  },
+  {
+    "topic": "Ⅱ型系统稳态误差",
+    "stem": "稳定的单位负反馈系统中，输入单位抛物线信号 r(t) = <span class=\"math\">\\(\\frac{t^{2}}{2}\\)</span> 时，Ⅱ型系统的稳态误差为（　）。",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(0\\)</span>"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(\\frac{1}{K_{a}}\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(∞\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(\\frac{1}{1+K_{p}}\\)</span>"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>单位抛物线输入 <span class=\"math\">\\(r(t) = \\frac{t^{2}}{2}\\)</span> 的拉普拉斯变换为 <span class=\"math\">\\(R(s) = \\frac{1}{s^{3}}\\)</span>。定义加速度误差系数 <span class=\"math\">\\(K_{a} = lim_{s→0} s²G(s)\\)</span>。</p><div class=\"formula-box math\">\\[e_{ss} = \\frac{1}{K_{a}}\\]</div><p>Ⅱ型系统对阶跃、斜坡输入的稳态误差为 0，对抛物线输入为有限非零值。</p>"
+  },
+  {
+    "topic": "相位裕量",
+    "stem": "相位裕量的表达式及工程中通常要求的范围分别是（　）。",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(γ = φ(ω_{c}) + 180°；30°～60°\\)</span>"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(γ = φ(ω_{c}) − 180°；30°～60°\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(γ = φ(ω_{c}) + 180°；0°～30°\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(γ = 180° − φ(ω_{c})；60°～90°\\)</span>"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>在增益截止频率 <span class=\"math\">\\(ω_{c}\\)</span> 处，开环幅值满足 <span class=\"math\">\\(A(ω_{c})=1\\)</span>。相位裕量定义为：</p><div class=\"formula-box math\">\\[γ = φ(ω_{c}) + 180°\\]</div><p>工程中通常要求 γ 在 <strong>30°～60°</strong>之间，以兼顾相对稳定性和动态响应速度。</p>"
+  },
+  {
+    "topic": "典型环节幅频特性",
+    "stem": "惯性环节和积分环节的幅频特性分别是（　）。",
+    "options": [
+      [
+        "A",
+        "惯性：<span class=\"math\">\\(\\frac{1}{\\sqrt{1+ω²T²}}\\)</span>；积分：<span class=\"math\">\\(\\frac{1}{ω}\\)</span>"
+      ],
+      [
+        "B",
+        "惯性：<span class=\"math\">\\(\\frac{1}{1+ω²T²}\\)</span>；积分：<span class=\"math\">\\(\\frac{1}{ω²}\\)</span>"
+      ],
+      [
+        "C",
+        "惯性：<span class=\"math\">\\(\\frac{1}{\\sqrt{1+ω²T²}}\\)</span>；积分：<span class=\"math\">\\(ω\\)</span>"
+      ],
+      [
+        "D",
+        "惯性：<span class=\"math\">\\(\\sqrt{1+ω²T²}\\)</span>；积分：<span class=\"math\">\\(\\frac{1}{ω}\\)</span>"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>惯性环节 <span class=\"math\">\\(G(s) = \\frac{1}{Ts+1}\\)</span>，令 <span class=\"math\">\\(s=jω\\)</span> 后取模，得到 <span class=\"math\">\\(A(ω) = \\frac{1}{\\sqrt{1+ω²T²}}\\)</span>。</p><p>积分环节 <span class=\"math\">\\(G(s) = \\frac{1}{s}\\)</span>，其频率特性为 <span class=\"math\">\\(\\frac{1}{jω}\\)</span>，所以幅频特性为 <span class=\"math\">\\(A(ω) = \\frac{1}{ω}\\)</span>。</p>"
+  },
+  {
+    "topic": "反馈系统传递函数",
+    "stem": "反馈控制系统的传递函数分为（　）三种。",
+    "options": [
+      [
+        "A",
+        "开环传递函数、闭环传递函数、扰动传递函数"
+      ],
+      [
+        "B",
+        "前向传递函数、反馈传递函数、误差传递函数"
+      ],
+      [
+        "C",
+        "开环传递函数、误差传递函数、输出传递函数"
+      ],
+      [
+        "D",
+        "开环传递函数、闭环传递函数、误差传递函数"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p>本题按反馈控制系统的常用分类，三种传递函数为：<strong>开环传递函数、闭环传递函数、误差传递函数</strong>。</p><p>开环传递函数通常指回路断开后的 <span class=\"math\">\\(G(s)H(s)\\)</span>；闭环传递函数描述输出与输入的关系；误差传递函数描述误差信号与输入的关系。</p>"
+  },
+  {
+    "topic": "系统基本性能要求",
+    "stem": "系统基本的性能要求包含（　）。",
+    "options": [
+      [
+        "A",
+        "稳定性、能控性、能观性"
+      ],
+      [
+        "B",
+        "快速性、准确性、因果性"
+      ],
+      [
+        "C",
+        "稳定性、快速性、准确性"
+      ],
+      [
+        "D",
+        "稳定性、准确性、最小相位性"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p>控制系统的三项基本性能要求是<strong>稳定性、快速性、准确性</strong>，通常概括为“稳、快、准”。</p><p>稳定性是系统正常工作的前提，快速性描述动态响应速度，准确性描述稳态跟踪精度。</p>"
+  },
+  {
+    "topic": "改善稳态精度",
+    "stem": "改善系统稳态精度的方法是（　）。",
+    "options": [
+      [
+        "A",
+        "降低系统型别、减小开环增益"
+      ],
+      [
+        "B",
+        "提高系统型别、增大开环增益"
+      ],
+      [
+        "C",
+        "增加系统阻尼比、降低无阻尼自然频率"
+      ],
+      [
+        "D",
+        "增大相角裕度、提高增益截止频率"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>提高系统型别，可以消除对更高阶典型输入的稳态误差；增大开环增益，可以减小有限稳态误差。因此答案是<strong>提高系统型别、增大开环增益</strong>。</p><p>实际校正中必须同时检查稳定性，不能为了减小稳态误差而无限增大增益。</p>"
+  },
+  {
+    "topic": "PID参数名称",
+    "stem": "PID 控制器中，K<sub>p</sub>、T<sub>i</sub>、T<sub>d</sub> 分别称为（　）。",
+    "options": [
+      [
+        "A",
+        "比例系数、微分时间常数、积分时间常数"
+      ],
+      [
+        "B",
+        "比例系数、采样周期、积分时间常数"
+      ],
+      [
+        "C",
+        "比例系数、积分时间常数、采样时间常数"
+      ],
+      [
+        "D",
+        "比例系数、积分时间常数、微分时间常数"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p><span class=\"math\">\\(K_{p}\\)</span> 是<strong>比例系数</strong>，<span class=\"math\">\\(T_{i}\\)</span> 是<strong>积分时间常数</strong>，<span class=\"math\">\\(T_{d}\\)</span> 是<strong>微分时间常数</strong>。</p><p>PID 的基本结构是比例、积分、微分三项作用的组合，可记为 P—K<sub>p</sub>、I—T<sub>i</sub>、D—T<sub>d</sub>。</p>"
+  },
+  {
+    "topic": "校正装置连接方式",
+    "stem": "按照校正装置在系统中的连接方式，校正方法可分为（　）。",
+    "options": [
+      [
+        "A",
+        "串联校正、反馈校正、滞后校正"
+      ],
+      [
+        "B",
+        "串联校正、反馈校正、前馈补偿"
+      ],
+      [
+        "C",
+        "超前校正、滞后校正、复合校正"
+      ],
+      [
+        "D",
+        "串联校正、并联校正、PID 校正"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>按校正装置与原有系统的连接关系，通常分为<strong>串联校正、反馈校正和前馈补偿</strong>。</p><p>超前、滞后是按校正装置的相频特性或功能分类；PID 是具体控制规律，不属于这里要求的三种连接方式。</p>"
+  },
+  {
+    "topic": "前向与反馈通道",
+    "stem": "闭环系统中，由给定值至被控量的通道称为（　）；由被控量至系统输入端的通道称为（　）。",
+    "options": [
+      [
+        "A",
+        "反馈通道、前向通道"
+      ],
+      [
+        "B",
+        "前向通道、前馈通道"
+      ],
+      [
+        "C",
+        "前向通道、反馈通道"
+      ],
+      [
+        "D",
+        "输入通道、输出通道"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p>信号从给定值经控制器、执行机构和被控对象传到被控量，这条主信号通路称为<strong>前向通道</strong>。</p><p>被控量经检测元件返回输入比较端，与给定值形成偏差，这条返回通路称为<strong>反馈通道</strong>。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "自动控制系统的三大性能指标是稳定性、<span>________</span>和<span>________</span>。",
+    "answer": "快速性；准确性",
+    "answerHtml": "自动控制系统的三大性能指标是稳定性、<strong>快速性</strong>和<strong>准确性</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>稳—快—准：极点、时间、误差</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "线性系统必须同时满足<span>________</span>和<span>________</span>。",
+    "answer": "齐次性（均匀性）；叠加性",
+    "answerHtml": "线性系统必须同时满足<strong>齐次性（均匀性）</strong>和<strong>叠加性</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>齐次看倍数、叠加看加法，两条缺一就不是线性</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "常规根轨迹起始于开环<span>________</span>，终止于开环<span>________</span>（或无穷远处）。",
+    "answer": "极点；零点",
+    "answerHtml": "常规根轨迹起始于开环<strong>极点</strong>，终止于开环<strong>零点</strong>（或无穷远处）。",
+    "analysis": "<p><strong>记忆要点：</strong>极点出发、零点收口，多出 n−m 条奔无穷</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "实轴上某区段右侧实数开环零、极点总数为<span>________</span>时，该区段必为根轨迹段。",
+    "answer": "奇数",
+    "answerHtml": "实轴上某区段右侧实数开环零、极点总数为<strong>奇数</strong>时，该区段必为根轨迹段。",
+    "analysis": "<p><strong>记忆要点：</strong>从右往左数，遇零极点就翻牌，奇数段是轨迹</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "对数幅频特性 L(ω)=<span>________</span>；当 A(ω)=1 时，L(ω)=<span>________</span> dB。",
+    "answer": "20lgA(ω)；0",
+    "answerHtml": "对数幅频特性 L(ω)=<strong>20lgA(ω)</strong>；当 A(ω)=1 时，L(ω)=<strong>0</strong> dB。",
+    "analysis": "<p><strong>记忆要点：</strong>幅频用 20lg，功率才 10lg；A=1 即 0dB</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "惯性环节 <span class=\"math\">\\(\\frac{1}{Ts+1}\\)</span> 的转折频率为<span>________</span>，在该频率处其相角为<span>________</span>。",
+    "answer": "1T；-45°",
+    "answerHtml": "惯性环节 <span class=\"math\">\\(\\frac{1}{Ts+1}\\)</span> 的转折频率为<strong><span class=\"math\">\\(\\frac{1}{T}\\)</span></strong>，在该频率处其相角为<strong><span class=\"math\">\\(-45^{\\circ}\\)</span></strong>。",
+    "analysis": "<p><strong>记忆要点：</strong><span>\\(\\frac{1}{T}\\)</span> 处 −3dB、−45°，之后每十倍频降 20</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "相位裕量的定义式为 γ=<span>________</span>，其中 ωc 为截止频率。",
+    "answer": "180°+φ(ωc)",
+    "answerHtml": "相位裕量的定义式为 γ=<strong>180°+φ(ωc)</strong>，其中 ωc 为截止频率。",
+    "analysis": "<p><strong>记忆要点：</strong>先让 A(ωc)=1 找到 ωc，再回代求 γ</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "工程上通常希望系统的相位裕量 γ 在<span>________</span>范围内。",
+    "answer": "30°～60°",
+    "answerHtml": "工程上通常希望系统的相位裕量 γ 在<strong>30°～60°</strong>范围内。",
+    "analysis": "<p><strong>记忆要点：</strong>三十到六十，稳中带快</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "对最小相位系统，当幅值裕量 Kg&lt;1 时，闭环系统<span>________</span>。",
+    "answer": "不稳定",
+    "answerHtml": "对最小相位系统，当幅值裕量 Kg&lt;1 时，闭环系统<strong>不稳定</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>最小相位看 Kg：大于 1 稳、等于 1 临界、小于 1 翻</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷一 · 填空",
+    "stem": "一阶保持器采用<span>________</span>外推规律，零阶保持器采用<span>________</span>外推规律。",
+    "answer": "线性；常值",
+    "answerHtml": "一阶保持器采用<strong>线性</strong>外推规律，零阶保持器采用<strong>常值</strong>外推规律。",
+    "analysis": "<p><strong>记忆要点：</strong>零阶走阶梯，一阶画折线</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "线性定常系统稳定的充要条件是（　　）。",
+    "options": [
+      [
+        "A",
+        "开环极点全部位于 s 左半平面"
+      ],
+      [
+        "B",
+        "闭环极点全部位于 s 左半平面"
+      ],
+      [
+        "C",
+        "开环零点全部位于 s 左半平面"
+      ],
+      [
+        "D",
+        "闭环极点全部位于 s 右半平面"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>闭环极点全部位于 s 左半平面</p><p><strong>记忆要点：</strong>稳定看闭环，极点在左半平面；开环只作参考</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "单位负反馈 II 型系统在单位斜坡输入 <span class=\"math\">\\(r(t)=t\\)</span> 作用下的稳态误差为（　　）。",
+    "options": [
+      [
+        "A",
+        "0"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(\\frac{1}{K_{v}}\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(∞\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(\\frac{1}{(1+K_{p})}\\)</span>"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>正确选项：</strong>0</p><p><strong>记忆要点：</strong>II 型打斜坡，误差归零</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "线性系统的稳态误差由（　　）确定。",
+    "options": [
+      [
+        "A",
+        "仅系统型别"
+      ],
+      [
+        "B",
+        "仅开环增益"
+      ],
+      [
+        "C",
+        "系统型别、开环增益和输入信号形式"
+      ],
+      [
+        "D",
+        "仅输入信号形式"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong>系统型别、开环增益和输入信号形式</p><p><strong>记忆要点：</strong>误差三来源：型别、增益、输入形</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "其他条件不变，闭环极点与负实轴的夹角 β 增大时（　　）。",
+    "options": [
+      [
+        "A",
+        "ζ 增大，超调量减小"
+      ],
+      [
+        "B",
+        "ζ 减小，超调量增大"
+      ],
+      [
+        "C",
+        "ζ 减小，超调量减小"
+      ],
+      [
+        "D",
+        "ζ 与超调量均不变"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>ζ 减小，超调量增大</p><p><strong>记忆要点：</strong>β 大→ζ 小→超调大；极点贴虚轴就晃</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "用实验法测取系统幅频特性时，一般通过改变输入正弦信号的（　　）逐点测量。",
+    "options": [
+      [
+        "A",
+        "幅值"
+      ],
+      [
+        "B",
+        "频率"
+      ],
+      [
+        "C",
+        "相位"
+      ],
+      [
+        "D",
+        "功率"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>频率</p><p><strong>记忆要点：</strong>测幅频靠扫频：只变频率，幅值与相位一起记</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "下列判据中，利用开环频率特性判断闭环系统稳定性的是（　　）。",
+    "options": [
+      [
+        "A",
+        "劳斯判据"
+      ],
+      [
+        "B",
+        "赫尔维茨判据"
+      ],
+      [
+        "C",
+        "奈奎斯特稳定判据"
+      ],
+      [
+        "D",
+        "根轨迹法"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong>奈奎斯特稳定判据</p><p><strong>记忆要点：</strong>开环频特判闭环，只认奈氏</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "超前校正装置 <span class=\"math\">\\(G_{c}(s)=\\frac{(1+αTs)}{(1+Ts)}\\)</span>（<span class=\"math\">\\(α&gt;1\\)</span>）的相频特性（　　）。",
+    "options": [
+      [
+        "A",
+        "恒为 0°"
+      ],
+      [
+        "B",
+        "恒为负"
+      ],
+      [
+        "C",
+        "为正"
+      ],
+      [
+        "D",
+        "恒为 −180°"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong>为正</p><p><strong>记忆要点：</strong>超前 φ 为正，迟后 φ 为负</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "PID 控制器通常（　　）在系统的前向通道中。",
+    "options": [
+      [
+        "A",
+        "并接"
+      ],
+      [
+        "B",
+        "串接"
+      ],
+      [
+        "C",
+        "反馈连接"
+      ],
+      [
+        "D",
+        "前馈连接"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>串接</p><p><strong>记忆要点：</strong>PID 串在误差后、对象前</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "线性离散系统稳定的充要条件是全部闭环极点（　　）。",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(|z_{i}|&gt;1\\)</span>"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(|z_{i}|=1\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(|z_{i}|&lt;1\\)</span>"
+      ],
+      [
+        "D",
+        "位于 s 左半平面"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong><span class=\"math\">\\(|z_{i}|&lt;1\\)</span></p><p><strong>记忆要点：</strong>离散判稳看单位圆，极点在圈内才稳</p>"
+  },
+  {
+    "topic": "预测卷一 · 单选",
+    "stem": "动态结构图中，把同一信号分成多路传出的符号是（　　）。",
+    "options": [
+      [
+        "A",
+        "信号线"
+      ],
+      [
+        "B",
+        "方框"
+      ],
+      [
+        "C",
+        "综合点"
+      ],
+      [
+        "D",
+        "引出点"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p><strong>正确选项：</strong>引出点</p><p><strong>记忆要点：</strong>线传信号、框写传函、圈求和、点分支</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "动态结构图由信号线、方框、<span>________</span>和<span>________</span>四种基本符号组成。",
+    "answer": "综合点（比较点）；引出点",
+    "answerHtml": "动态结构图由信号线、方框、<strong>综合点（比较点）</strong>和<strong>引出点</strong>四种基本符号组成。",
+    "analysis": "<p><strong>记忆要点：</strong>四符号：线、框、圈、点——传、算、加、分</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "反馈控制系统的三种传递函数是开环传递函数、闭环传递函数和<span>________</span>。",
+    "answer": "误差传递函数",
+    "answerHtml": "反馈控制系统的三种传递函数是开环传递函数、闭环传递函数和<strong>误差传递函数</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>三种传函共用分母 1+G1G2H，分子看输入</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "二阶欠阻尼系统的峰值时间 <span class=\"math\">\\(t_{p}=\\)</span><span>________</span>；超调量 σ% 只与<span>________</span>有关。",
+    "answer": "πωd；阻尼比 ζ",
+    "answerHtml": "二阶欠阻尼系统的峰值时间 <span class=\"math\">\\(t_{p}=\\)</span><strong><span class=\"math\">\\(\\frac{π}{ω_{d}}\\)</span></strong>；超调量 σ% 只与<strong>阻尼比 ζ</strong>有关。",
+    "analysis": "<p><strong>记忆要点：</strong>峰值看 ωd，超调看 ζ，调节看 ζωn</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "线性定常系统稳定的充要条件是全部闭环极点位于 s 平面的<span>________</span>。",
+    "answer": "左半平面",
+    "answerHtml": "线性定常系统稳定的充要条件是全部闭环极点位于 s 平面的<strong>左半平面</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>稳定＝闭环极点全在左半平面（实部为负）</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "单位负反馈 II 型系统在单位斜坡输入下的稳态误差为<span>________</span>。",
+    "answer": "0",
+    "answerHtml": "单位负反馈 II 型系统在单位斜坡输入下的稳态误差为<strong>0</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>型别够，误差零：II 型遇斜坡</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "改善系统稳态精度的两种基本方法是提高<span>________</span>和适当增大<span>________</span>。",
+    "answer": "系统型别；开环增益",
+    "answerHtml": "改善系统稳态精度的两种基本方法是提高<strong>系统型别</strong>和适当增大<strong>开环增益</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>提精度：升型别、加增益，代价稳定性</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "实轴上某区段为根轨迹段的充要条件是该区段右侧实数开环零、极点总数为<span>________</span>。",
+    "answer": "奇数",
+    "answerHtml": "实轴上某区段为根轨迹段的充要条件是该区段右侧实数开环零、极点总数为<strong>奇数</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>实轴段：右侧零极点总数为奇数</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "根轨迹渐近线的条数为<span>________</span>，与实轴交点的计算式为<span class=\"math\">\\(σ_{a}=\\)</span><span>________</span>。",
+    "answer": "n−m；(Σpi-Σzj)(n-m)",
+    "answerHtml": "根轨迹渐近线的条数为<strong>n−m</strong>，与实轴交点的计算式为<span class=\"math\">\\(σ_{a}=\\)</span><strong><span class=\"math\">\\(\\frac{(Σp_{i}-Σz_{j})}{(n-m)}\\)</span></strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>渐近线 n−m 条，σ<sub>a</sub> = <span>\\(\\frac{Σp_{i} − Σz_{j}}{n − m}\\)</span></p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "当 A(ω)=10 时，对数幅频特性 L(ω)=<span>________</span> dB；20lg100=<span>________</span> dB。",
+    "answer": "20；40",
+    "answerHtml": "当 A(ω)=10 时，对数幅频特性 L(ω)=<strong>20</strong> dB；20lg100=<strong>40</strong> dB。",
+    "analysis": "<p><strong>记忆要点：</strong>20lg10=20，20lg100=40，翻十倍加 20</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷二 · 填空",
+    "stem": "采样系统常以差分方程和<span>________</span>描述，其稳定的充要条件是全部闭环极点满足<span>________</span>。",
+    "answer": "脉冲传递函数；|zi|<1",
+    "answerHtml": "采样系统常以差分方程和<strong>脉冲传递函数</strong>描述，其稳定的充要条件是全部闭环极点满足<strong><span class=\"math\">\\(|z_{i}|&lt;1\\)</span></strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>离散判稳：闭环极点在单位圆内</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "衡量控制系统准确性的性能指标是（　　）。",
+    "options": [
+      [
+        "A",
+        "超调量 σ%"
+      ],
+      [
+        "B",
+        "调节时间 <span class=\"math\">\\(t_{s}\\)</span>"
+      ],
+      [
+        "C",
+        "稳态误差<span class=\"math\">\\(e_{ss}\\)</span>"
+      ],
+      [
+        "D",
+        "上升时间 <span class=\"math\">\\(t_{r}\\)</span>"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong>稳态误差<span class=\"math\">\\(e_{ss}\\)</span></p><p><strong>记忆要点：</strong>准不准看 ess——稳态误差</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "关于线性定常系统的传递函数，下列说法正确的是（　　）。",
+    "options": [
+      [
+        "A",
+        "与输入幅值有关"
+      ],
+      [
+        "B",
+        "只与系统结构和参数有关"
+      ],
+      [
+        "C",
+        "与初始条件有关"
+      ],
+      [
+        "D",
+        "随输入频率变化"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>只与系统结构和参数有关</p><p><strong>记忆要点：</strong>传函两前提：零初始、只看结构参数</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "常规根轨迹起始于（　　）。",
+    "options": [
+      [
+        "A",
+        "开环零点"
+      ],
+      [
+        "B",
+        "开环极点"
+      ],
+      [
+        "C",
+        "闭环零点"
+      ],
+      [
+        "D",
+        "无穷远处"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>开环极点</p><p><strong>记忆要点：</strong>起点在极点，终点在零点</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "其他条件不变，阻尼振荡角频率<span class=\"math\">\\(ω_{d}\\)</span> 增大时，峰值时间 <span class=\"math\">\\(t_{p}\\)</span>（　　）。",
+    "options": [
+      [
+        "A",
+        "增大"
+      ],
+      [
+        "B",
+        "减小"
+      ],
+      [
+        "C",
+        "不变"
+      ],
+      [
+        "D",
+        "先增大后减小"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>减小</p><p><strong>记忆要点：</strong>ωd 越大振荡越快，tp 越短</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "积分环节 <span class=\"math\">\\(\\frac{1}{s}\\)</span> 的对数幅频特性是（　　）。",
+    "options": [
+      [
+        "A",
+        "水平线"
+      ],
+      [
+        "B",
+        "斜率为 −20 dB/dec 的直线"
+      ],
+      [
+        "C",
+        "斜率为 −40 dB/dec 的直线"
+      ],
+      [
+        "D",
+        "斜率为 +20 dB/dec 的直线"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>斜率为 −20 dB/dec 的直线</p><p><strong>记忆要点：</strong>一个积分 −20，两个 −40，每十倍频降一档</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "用实验法测取系统频率特性时，输入信号应采用（　　）。",
+    "options": [
+      [
+        "A",
+        "阶跃信号"
+      ],
+      [
+        "B",
+        "斜坡信号"
+      ],
+      [
+        "C",
+        "正弦信号"
+      ],
+      [
+        "D",
+        "脉冲信号"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong>正弦信号</p><p><strong>记忆要点：</strong>测频响用正弦扫频</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "某最小相位系统 P=2，其开环幅相曲线逆时针包围 (−1,j0) 点 1 圈，则闭环右半平面极点数 Z 为（　　）。",
+    "options": [
+      [
+        "A",
+        "0"
+      ],
+      [
+        "B",
+        "1"
+      ],
+      [
+        "C",
+        "2"
+      ],
+      [
+        "D",
+        "4"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>正确选项：</strong>0</p><p><strong>记忆要点：</strong>逆时针为正，Z=P−2N，得零才稳</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "相位裕量是在（　　）处定义的。",
+    "options": [
+      [
+        "A",
+        "相角穿越频率<span class=\"math\">\\(ω_{g}\\)</span>"
+      ],
+      [
+        "B",
+        "截止频率<span class=\"math\">\\(ω_{c}\\)</span>"
+      ],
+      [
+        "C",
+        "转折频率"
+      ],
+      [
+        "D",
+        "谐振频率"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>截止频率<span class=\"math\">\\(ω_{c}\\)</span></p><p><strong>记忆要点：</strong>γ 看 ωc（A=1），Kg 看 ωg（φ=−180°）</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "某最小相位系统的相位裕量 γ=45°，则该系统（　　）。",
+    "options": [
+      [
+        "A",
+        "不稳定"
+      ],
+      [
+        "B",
+        "临界稳定"
+      ],
+      [
+        "C",
+        "稳定，且落在通常的 30°～60° 范围内"
+      ],
+      [
+        "D",
+        "稳定，但裕量偏小"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong>稳定，且落在通常的 30°～60° 范围内</p><p><strong>记忆要点：</strong>45° 落在 30～60 内，稳定且有余量</p>"
+  },
+  {
+    "topic": "预测卷二 · 单选",
+    "stem": "某最小相位系统的幅值裕量<span class=\"math\">\\(K_{g}=0.5\\)</span>，则闭环系统（　　）。",
+    "options": [
+      [
+        "A",
+        "稳定"
+      ],
+      [
+        "B",
+        "不稳定"
+      ],
+      [
+        "C",
+        "临界稳定"
+      ],
+      [
+        "D",
+        "无法判断"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>不稳定</p><p><strong>记忆要点：</strong>Kg=0.5&lt;1，最小相位必不稳</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "三大性能指标中，稳定性是系统正常工作的<span>________</span>，准确性用<span>________</span>衡量。",
+    "answer": "首要条件（前提）；稳态误差",
+    "answerHtml": "三大性能指标中，稳定性是系统正常工作的<strong>首要条件（前提）</strong>，准确性用<strong>稳态误差</strong>衡量。",
+    "analysis": "<p><strong>记忆要点：</strong>稳是前提，快看时间，准看误差</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "线性系统的两大特点是<span>________</span>和<span>________</span>。",
+    "answer": "齐次性；叠加性",
+    "answerHtml": "线性系统的两大特点是<strong>齐次性</strong>和<strong>叠加性</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>倍数与加法都过，才叫线性</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "常规根轨迹的起点是开环<span>________</span>。",
+    "answer": "极点",
+    "answerHtml": "常规根轨迹的起点是开环<strong>极点</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>根轨迹只从开环极点长出来</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "二阶欠阻尼系统的阻尼振荡角频率<span class=\"math\">\\(ω_{d}=\\)</span><span>________</span>，峰值时间 <span class=\"math\">\\(t_{p}=\\)</span><span>________</span>。",
+    "answer": "ωn√1-ζ2；πωd",
+    "answerHtml": "二阶欠阻尼系统的阻尼振荡角频率<span class=\"math\">\\(ω_{d}=\\)</span><strong><span class=\"math\">\\(ω_{n}\\sqrt{1-ζ^{2}}\\)</span></strong>，峰值时间 <span class=\"math\">\\(t_{p}=\\)</span><strong><span class=\"math\">\\(\\frac{π}{ω_{d}}\\)</span></strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>ωd=ωn√1-ζ2；先算 ωd，t<sub>p</sub> = <span>\\(\\frac{π}{ω_{d}}\\)</span></p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "积分环节 <span class=\"math\">\\(\\frac{1}{s}\\)</span> 的对数幅频特性斜率为<span>________</span>。",
+    "answer": "−20 dB/dec",
+    "answerHtml": "积分环节 <span class=\"math\">\\(\\frac{1}{s}\\)</span> 的对数幅频特性斜率为<strong>−20 dB/dec</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>积分环节斜率 −20，两个叠加 −40</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "惯性环节 <span class=\"math\">\\(\\frac{1}{Ts+1}\\)</span> 的转折频率为<span>________</span>，其高频渐近线的斜率为<span>________</span>。",
+    "answer": "1T；−20 dB/dec",
+    "answerHtml": "惯性环节 <span class=\"math\">\\(\\frac{1}{Ts+1}\\)</span> 的转折频率为<strong><span class=\"math\">\\(\\frac{1}{T}\\)</span></strong>，其高频渐近线的斜率为<strong>−20 dB/dec</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>惯性环节转角 <span>\\(\\frac{1}{T}\\)</span>，之后 −20dB/dec</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "相位裕量的计算式为<span class=\"math\">\\(γ=\\)</span><span>________</span>。",
+    "answer": "180°+φ(ωc)",
+    "answerHtml": "相位裕量的计算式为<span class=\"math\">\\(γ=\\)</span><strong><span class=\"math\">\\(180^{\\circ}+φ(ω_{c})\\)</span></strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>γ=180°+φ(ωc)，先找 A=1</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "工程上通常希望相位裕量 γ 为 30°～60°，γ 越大系统的相对稳定性越<span>________</span>。",
+    "answer": "好",
+    "answerHtml": "工程上通常希望相位裕量 γ 为 30°～60°，γ 越大系统的相对稳定性越<strong>好</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>γ 越大越稳越慢，三十到六十刚好</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "幅值裕量<span class=\"math\">\\(K_{g}\\)</span> 是在<span>________</span>处定义的，<span class=\"math\">\\(K_{g}=\\)</span><span>________</span>。",
+    "answer": "相角穿越频率ωg；1A(ωg)",
+    "answerHtml": "幅值裕量<span class=\"math\">\\(K_{g}\\)</span> 是在<strong>相角穿越频率<span class=\"math\">\\(ω_{g}\\)</span></strong>处定义的，<span class=\"math\">\\(K_{g}=\\)</span><strong><span class=\"math\">\\(\\frac{1}{A(ω_{g})}\\)</span></strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>Kg 在 φ=−180° 处，取幅值倒数</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "预测卷三 · 填空",
+    "stem": "零阶保持器采用<span>________</span>外推，其输出为<span>________</span>。",
+    "answer": "常值；阶梯波",
+    "answerHtml": "零阶保持器采用<strong>常值</strong>外推，其输出为<strong>阶梯波</strong>。",
+    "analysis": "<p><strong>记忆要点：</strong>零阶＝常值外推，输出阶梯</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "线性定常连续系统稳定的充要条件是特征方程的全部根（　　）。",
+    "options": [
+      [
+        "A",
+        "实部为负"
+      ],
+      [
+        "B",
+        "实部为正"
+      ],
+      [
+        "C",
+        "为纯虚数"
+      ],
+      [
+        "D",
+        "位于原点"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>正确选项：</strong>实部为负</p><p><strong>记忆要点：</strong>全部根实部为负＝都在左半平面</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "单位负反馈 II 型系统在单位加速度输入 <span class=\"math\">\\(r(t)=\\frac{t^{2}}{2}\\)</span> 作用下的稳态误差为（　　）。",
+    "options": [
+      [
+        "A",
+        "0"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(\\frac{1}{K_{a}}\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(∞\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(\\frac{1}{(1+K_{p})}\\)</span>"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong><span class=\"math\">\\(\\frac{1}{K_{a}}\\)</span></p><p><strong>记忆要点：</strong>II 型对加速度，误差有限 <span>\\(\\frac{1}{K_{a}}\\)</span></p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "下列措施中，能减小稳态误差但会使稳定性变差的是（　　）。",
+    "options": [
+      [
+        "A",
+        "增大开环增益"
+      ],
+      [
+        "B",
+        "减小开环增益"
+      ],
+      [
+        "C",
+        "增加微分校正"
+      ],
+      [
+        "D",
+        "降低系统型别"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>正确选项：</strong>增大开环增益</p><p><strong>记忆要点：</strong>提型别、加增益能减误差，但伤稳定</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "劳斯表第一列符号改变的次数等于（　　）。",
+    "options": [
+      [
+        "A",
+        "左半平面根数"
+      ],
+      [
+        "B",
+        "右半平面根数"
+      ],
+      [
+        "C",
+        "虚轴上的根数"
+      ],
+      [
+        "D",
+        "零根个数"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>右半平面根数</p><p><strong>记忆要点：</strong>劳斯首列变号次数＝右半平面根数</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "开环极点位于 0、−1、−3，无有限零点，实轴上的根轨迹段为（　　）。",
+    "options": [
+      [
+        "A",
+        "(−1,0) 和 (−∞,−3)"
+      ],
+      [
+        "B",
+        "(−3,−1) 和 (0,+∞)"
+      ],
+      [
+        "C",
+        "(−1,0) 和 (−3,−1)"
+      ],
+      [
+        "D",
+        "仅 (−3,0)"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>正确选项：</strong>(−1,0) 和 (−∞,−3)</p><p><strong>记忆要点：</strong>零点极点从右往左翻牌，奇数段留</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "某频率下幅值 A(ω)=10，则对数幅频特性 L(ω) 为（　　）。",
+    "options": [
+      [
+        "A",
+        "10 dB"
+      ],
+      [
+        "B",
+        "20 dB"
+      ],
+      [
+        "C",
+        "40 dB"
+      ],
+      [
+        "D",
+        "0 dB"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>20 dB</p><p><strong>记忆要点：</strong>A=10 时，L=20lg10=20dB</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "用实验法测取频率特性时，需要测量的量是（　　）。",
+    "options": [
+      [
+        "A",
+        "输出与输入的幅值比、输出与输入的相位差"
+      ],
+      [
+        "B",
+        "输入与输出的频率差"
+      ],
+      [
+        "C",
+        "输出的直流分量"
+      ],
+      [
+        "D",
+        "系统的开环增益"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p><strong>正确选项：</strong>输出与输入的幅值比、输出与输入的相位差</p><p><strong>记忆要点：</strong>测幅值比与相位差，输入同频正弦</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "奈奎斯特稳定判据的关系式为（　　）。",
+    "options": [
+      [
+        "A",
+        "Z=P+N"
+      ],
+      [
+        "B",
+        "Z=P−N"
+      ],
+      [
+        "C",
+        "Z=P−2N"
+      ],
+      [
+        "D",
+        "Z=2P−N"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p><strong>正确选项：</strong>Z=P−2N</p><p><strong>记忆要点：</strong>Z=P−2N，2 是正负频率成对</p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "超前校正装置 <span class=\"math\">\\(G_{c}(s)=\\frac{(1+αTs)}{(1+Ts)}\\)</span>（<span class=\"math\">\\(α&gt;1\\)</span>）产生最大超前角的频率为（　　）。",
+    "options": [
+      [
+        "A",
+        "<span class=\"math\">\\(\\frac{1}{T}\\)</span>"
+      ],
+      [
+        "B",
+        "<span class=\"math\">\\(\\frac{α}{T}\\)</span>"
+      ],
+      [
+        "C",
+        "<span class=\"math\">\\(\\frac{1}{(αT)}\\)</span>"
+      ],
+      [
+        "D",
+        "<span class=\"math\">\\(\\frac{1}{(T\\sqrt{α})}\\)</span>"
+      ]
+    ],
+    "answer": "D",
+    "analysis": "<p><strong>正确选项：</strong><span class=\"math\">\\(\\frac{1}{(T\\sqrt{α})}\\)</span></p><p><strong>记忆要点：</strong>最大超前角落在 <span>\\(\\frac{1}{T\\sqrt{α}}\\)</span></p>"
+  },
+  {
+    "topic": "预测卷三 · 单选",
+    "stem": "PID 控制器中，积分环节的主要作用是（　　）。",
+    "options": [
+      [
+        "A",
+        "提高快速性"
+      ],
+      [
+        "B",
+        "消除稳态误差"
+      ],
+      [
+        "C",
+        "增大阻尼"
+      ],
+      [
+        "D",
+        "抑制高频噪声"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p><strong>正确选项：</strong>消除稳态误差</p><p><strong>记忆要点：</strong>积分环节管消除稳态误差</p>"
+  },
+  {
+    "topic": "28考点·梅森公式",
+    "stem": "某控制系统流图有 3 个回路：\\(L_{1}=-G_{1}H_{1}\\)、\\(L_{2}=-G_{2}H_{2}\\)、\\(L_{3}=-G_{3}H_{3}\\)，其中 \\(L_{1}\\) 与 \\(L_{3}\\) 互不接触。该流图的特征式 \\(\\Delta\\) 为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(1+G_{1}H_{1}+G_{2}H_{2}+G_{3}H_{3}+G_{1}G_{3}H_{1}H_{3}\\)"
+      ],
+      [
+        "B",
+        "\\(1-(G_{1}H_{1}+G_{2}H_{2}+G_{3}H_{3})+G_{1}G_{3}H_{1}H_{3}\\)"
+      ],
+      [
+        "C",
+        "\\(1+G_{1}H_{1}+G_{2}H_{2}+G_{3}H_{3}\\)"
+      ],
+      [
+        "D",
+        "\\(1+G_{1}H_{1}+G_{2}H_{2}+G_{3}H_{3}-G_{1}G_{3}H_{1}H_{3}\\)"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>梅森公式中特征式 \\(\\Delta=1-\\sum L_{a}+\\sum L_{b}L_{c}-\\cdots\\)。三个回路增益都是负的，因此 \\(-\\sum L_{a}=G_{1}H_{1}+G_{2}H_{2}+G_{3}H_{3}\\)；只有 \\(L_{1}\\) 与 \\(L_{3}\\) 互不接触，其乘积作为正项 \\(G_{1}G_{3}H_{1}H_{3}\\) 加入。</p><p>正确选项：\\(1+G_{1}H_{1}+G_{2}H_{2}+G_{3}H_{3}+G_{1}G_{3}H_{1}H_{3}\\)。</p>"
+  },
+  {
+    "topic": "28考点·梅森公式",
+    "stem": "某流图前向通道 \\(P_{1}\\) 与三个回路都接触；\\(P_{2}\\) 只与 \\(L_{2}\\) 接触，与 \\(L_{1}\\)、\\(L_{3}\\) 不接触，且 \\(L_{1}\\) 与 \\(L_{3}\\) 互不接触。则 \\(\\Delta_{1}\\)、\\(\\Delta_{2}\\) 分别为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(1,\\quad 1-(L_{1}+L_{3})+L_{1}L_{3}\\)"
+      ],
+      [
+        "B",
+        "\\(1,\\quad 1+L_{1}+L_{3}+L_{1}L_{3}\\)"
+      ],
+      [
+        "C",
+        "\\(0,\\quad 1+L_{1}+L_{3}\\)"
+      ],
+      [
+        "D",
+        "\\(1,\\quad 1+L_{1}+L_{3}\\)"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>\\(\\Delta_{k}\\) 是第 \\(k\\) 条前向通道的余子式：删去与该通道接触的回路后剩下的 \\(\\Delta\\) 部分。\\(P_{1}\\) 与所有回路接触，\\(\\Delta_{1}=1\\)；\\(P_{2}\\) 与 \\(L_{2}\\) 接触，删去 \\(L_{2}\\) 后只剩 \\(L_{1}\\)、\\(L_{3}\\) 及其互不接触乘积，故 \\(\\Delta_{2}=1-(L_{1}+L_{3})+L_{1}L_{3}\\)。</p><p>正确选项：\\(1,\\ 1-(L_{1}+L_{3})+L_{1}L_{3}\\)。</p>"
+  },
+  {
+    "topic": "28考点·结构图求参数",
+    "stem": "单位负反馈系统的开环传递函数为 \\(G(s)=\\frac{K}{s(\\tau s+1)}\\)（\\(K>0\\)，\\(\\tau>0\\)）。要求超调量 \\(\\sigma\\%=16.3\\%\\)、调节时间 \\(t_{s}=2\\,\\mathrm{s}\\)（\\(\\Delta=5\\%\\)），则 \\(K\\)、\\(\\tau\\) 应为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(K=3,\\quad \\tau=\\frac{1}{3}\\)"
+      ],
+      [
+        "B",
+        "\\(K=9,\\quad \\tau=\\frac{1}{3}\\)"
+      ],
+      [
+        "C",
+        "\\(K=3,\\quad \\tau=3\\)"
+      ],
+      [
+        "D",
+        "\\(K=3,\\quad \\tau=\\frac{2}{3}\\)"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>由 \\(\\sigma\\%=16.3\\%\\) 得 \\(\\zeta=0.5\\)；由 \\(t_{s}=\\frac{3}{\\zeta\\omega_{n}}=2\\) 得 \\(\\zeta\\omega_{n}=1.5\\)，故 \\(\\omega_{n}=3\\)。</p><p>比较标准式：\\(2\\zeta\\omega_{n}=\\frac{1}{\\tau}=3\\Rightarrow\\tau=\\frac{1}{3}\\)；\\(\\omega_{n}^{2}=\\frac{K}{\\tau}=9\\Rightarrow K=3\\)。</p><p>正确选项：\\(K=3,\\ \\tau=\\frac{1}{3}\\)。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "28考点·结构图求参数",
+    "stem": "承上题，取 \\(K=3\\)、\\(\\tau=\\frac{1}{3}\\)，单位斜坡输入 \\(r(t)=t\\) 作用下的稳态误差 \\(e_{ss}=\\)________。",
+    "answer": "1/3",
+    "answerHtml": "承上题，取 \\(K=3\\)、\\(\\tau=\\frac{1}{3}\\)，单位斜坡输入 \\(r(t)=t\\) 作用下的稳态误差 \\(e_{ss}=<strong>\\frac{1}{3}</strong>。",
+    "analysis": "<p>系统为Ⅰ型，速度误差系数 \\(K_{v}=\\lim_{s\\to0}sG(s)=\\lim_{s\\to0}\\frac{3}{\\frac{1}{3}s+1}=3\\)，故 \\(e_{ss}=\\frac{1}{K_{v}}=\\frac{1}{3}\\)。</p>"
+  },
+  {
+    "topic": "28考点·根轨迹绘图",
+    "stem": "已知开环传递函数 \\(G(s)H(s)=\\frac{K_{r}}{s(s+3)(s+6)}\\)（\\(K_{r}>0\\)），根轨迹在实轴上的分离点为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(s=-3+\\sqrt{3}\\)"
+      ],
+      [
+        "B",
+        "\\(s=-3-\\sqrt{3}\\)"
+      ],
+      [
+        "C",
+        "\\(s=-3\\)"
+      ],
+      [
+        "D",
+        "无分离点"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>由 \\(K_{r}=-s(s+3)(s+6)\\) 令 \\(\\frac{dK_{r}}{ds}=-(3s^{2}+18s+18)=0\\)，即 \\(s^{2}+6s+6=0\\)，得 \\(s=-3\\pm\\sqrt{3}\\)。</p><p>只有 \\(s=-3+\\sqrt{3}\\approx-1.268\\) 落在根轨迹段 \\((-3,0)\\) 上且对应 \\(K_{r}>0\\)，是分离点；另一根不在根轨迹段上，舍去。</p><p>正确选项：\\(s=-3+\\sqrt{3}\\)。</p>"
+  },
+  {
+    "topic": "28考点·根轨迹绘图",
+    "stem": "同上系统 \\(G(s)H(s)=\\frac{K_{r}}{s(s+3)(s+6)}\\)，根轨迹与虚轴交点对应的临界增益 \\(K_{r}\\) 及振荡角频率 \\(\\omega\\) 为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(K_{r}=162,\\quad \\omega=3\\sqrt{2}\\)"
+      ],
+      [
+        "B",
+        "\\(K_{r}=162,\\quad \\omega=2\\sqrt{3}\\)"
+      ],
+      [
+        "C",
+        "\\(K_{r}=66,\\quad \\omega=3\\sqrt{2}\\)"
+      ],
+      [
+        "D",
+        "\\(K_{r}=18,\\quad \\omega=3\\)"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>闭环特征方程为 \\(s^{3}+9s^{2}+18s+K_{r}=0\\)。列劳斯表，临界条件为 \\(s^{1}\\) 行为零：\\(\\frac{162-K_{r}}{9}=0\\)，得 \\(K_{r}=162\\)。</p><p>此时由辅助方程 \\(9s^{2}+162=0\\) 得 \\(s=\\pm j\\sqrt{18}=\\pm j3\\sqrt{2}\\)，即 \\(\\omega=3\\sqrt{2}\\)。</p><p>正确选项：\\(K_{r}=162,\\ \\omega=3\\sqrt{2}\\)。</p>"
+  },
+  {
+    "topic": "28考点·根轨迹绘图",
+    "stem": "同上系统，根轨迹渐近线与实轴的夹角为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(0^{\\circ},\\ \\pm120^{\\circ}\\)"
+      ],
+      [
+        "B",
+        "\\(\\pm60^{\\circ},\\ 180^{\\circ}\\)"
+      ],
+      [
+        "C",
+        "\\(\\pm90^{\\circ}\\)"
+      ],
+      [
+        "D",
+        "\\(\\pm45^{\\circ},\\ 180^{\\circ}\\)"
+      ]
+    ],
+    "answer": "B",
+    "analysis": "<p>开环极点 \\(0、-3、-6\\)，无有限零点，\\(n-m=3\\) 条渐近线。夹角 \\(\\varphi_{a}=\\frac{(2k+1)180^{\\circ}}{n-m}\\)，取 \\(k=0,1,2\\) 得 \\(60^{\\circ}、180^{\\circ}、300^{\\circ}\\)，即 \\(\\pm60^{\\circ}\\) 与 \\(180^{\\circ}\\)。</p><p>正确选项：\\(\\pm60^{\\circ},\\ 180^{\\circ}\\)。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "28考点·劳斯判据",
+    "stem": "已知闭环特征方程 \\(s^{3}+6s^{2}+11s+K=0\\)（\\(K>0\\)），使系统稳定的 \\(K\\) 范围是________。",
+    "answer": "0<K<66",
+    "answerHtml": "已知闭环特征方程 \\(s^{3}+6s^{2}+11s+K=0\\)（\\(K>0\\)），使系统稳定的 \\(K\\) 范围是<strong>\\(0<K<66\\)</strong>。",
+    "analysis": "<p>列劳斯表：\\(s^{3}\\) 行为 \\(1、11\\)；\\(s^{2}\\) 行为 \\(6、K\\)；\\(s^{1}\\) 行为 \\(\\frac{66-K}{6}\\)；\\(s^{0}\\) 行为 \\(K\\)。</p><p>首列全部大于零：\\(K>0\\) 且 \\(\\frac{66-K}{6}>0\\)，故 \\(0<K<66\\)。</p>"
+  },
+  {
+    "topic": "28考点·劳斯判据",
+    "stem": "用劳斯判据判断稳定性时，若劳斯表某一行元素全为零，正确的处理方法是（　）。",
+    "options": [
+      [
+        "A",
+        "用该行上一行的系数构造辅助方程，对其求导后用导数系数代替全零行"
+      ],
+      [
+        "B",
+        "直接用足够小的正数 ε 代替该行第一个元素"
+      ],
+      [
+        "C",
+        "立即判定系统不稳定"
+      ],
+      [
+        "D",
+        "删去该行后继续计算"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>出现全零行时，用上一行系数构造辅助方程，对辅助方程求导，用导数方程的系数代替全零行后继续列劳斯表；辅助方程还能给出成对出现、符号相反的根（如纯虚根）。</p><p>“用 ε 代替”针对的是首列元素为零但该行不全为零的情形，二者不要混淆。</p><p>正确选项：用上一行构造辅助方程，求导后替代全零行。</p>"
+  },
+  {
+    "topic": "28考点·奈氏判据",
+    "stem": "某最小相位系统的开环右半平面极点数 \\(P=2\\)，其 \\(\\omega:0\\to\\infty\\) 的幅相曲线逆时针包围 \\((-1,j0)\\) 点 1 圈，则闭环右半平面极点数 \\(Z\\) 及稳定性为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(Z=0\\)，闭环稳定"
+      ],
+      [
+        "B",
+        "\\(Z=2\\)，不稳定"
+      ],
+      [
+        "C",
+        "\\(Z=4\\)，不稳定"
+      ],
+      [
+        "D",
+        "\\(Z=1\\)，不稳定"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>按本课程约定逆时针为正，\\(N=1\\)。由 \\(Z=P-2N=2-2\\times1=0\\)，闭环在右半平面无极点，系统稳定。</p><p>正确选项：\\(Z=0\\)，闭环稳定。</p>"
+  },
+  {
+    "topic": "28考点·奈氏判据",
+    "stem": "某最小相位系统的开环右半平面极点数 \\(P=1\\)，其幅相曲线顺时针包围 \\((-1,j0)\\) 点 1 圈（逆时针为正），则闭环右半平面极点数 \\(Z\\) 为（　）。",
+    "options": [
+      [
+        "A",
+        "0"
+      ],
+      [
+        "B",
+        "1"
+      ],
+      [
+        "C",
+        "3"
+      ],
+      [
+        "D",
+        "\\(-1\\)"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p>顺时针为负，故 \\(N=-1\\)。由 \\(Z=P-2N=1-2\\times(-1)=3\\)，闭环有 3 个右半平面极点，系统不稳定。</p><p>正确选项：\\(Z=3\\)。</p>"
+  },
+  {
+    "topic": "28考点·Bode反求传函",
+    "stem": "某最小相位系统的开环对数幅频特性渐近线：低频段为水平线且 \\(20\\lg K=26\\)，转折频率依次为 \\(2\\,\\mathrm{rad/s}\\) 和 \\(20\\,\\mathrm{rad/s}\\)，斜率由 \\(0\\) 变为 \\(-20\\)、再变为 \\(-40\\,\\mathrm{dB/dec}\\)。该系统的开环传递函数为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(G(s)=\\frac{20}{(0.5s+1)(0.05s+1)}\\)"
+      ],
+      [
+        "B",
+        "\\(G(s)=\\frac{2}{(0.5s+1)(20s+1)}\\)"
+      ],
+      [
+        "C",
+        "\\(G(s)=\\frac{20}{(2s+1)(20s+1)}\\)"
+      ],
+      [
+        "D",
+        "\\(G(s)=\\frac{200}{(0.5s+1)(0.05s+1)}\\)"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>低频段水平说明是 0 型系统，\\(20\\lg K=26\\Rightarrow K\\approx20\\)。转折频率处斜率依次额外下降 \\(-20\\,\\mathrm{dB/dec}\\)，对应两个惯性环节，时间常数 \\(T_{1}=\\frac{1}{2}=0.5\\)、\\(T_{2}=\\frac{1}{20}=0.05\\)。</p><p>正确选项：\\(G(s)=\\frac{20}{(0.5s+1)(0.05s+1)}\\)。</p>"
+  },
+  {
+    "topic": "28考点·Bode反求传函",
+    "stem": "承上题 \\(G(s)=\\frac{20}{(0.5s+1)(0.05s+1)}\\)，在截止频率 \\(\\omega_{c}\\approx 25\\,\\mathrm{rad/s}\\) 处，该系统的相位裕量约为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(43^{\\circ}\\)"
+      ],
+      [
+        "B",
+        "\\(-43^{\\circ}\\)"
+      ],
+      [
+        "C",
+        "\\(22^{\\circ}\\)"
+      ],
+      [
+        "D",
+        "\\(67^{\\circ}\\)"
+      ]
+    ],
+    "answer": "A",
+    "analysis": "<p>\\(\\varphi(\\omega_{c})=-\\arctan(0.5\\times25)-\\arctan(0.05\\times25)\\approx-85.4^{\\circ}-51.3^{\\circ}=-136.7^{\\circ}\\)。</p><p>\\(\\gamma=180^{\\circ}+\\varphi(\\omega_{c})\\approx43.3^{\\circ}>0\\)，闭环稳定。</p><p>正确选项：\\(43^{\\circ}\\)。</p>"
+  },
+  {
+    "type": "fill",
+    "topic": "28考点·采样定理",
+    "stem": "为不失真地复现连续信号，采样角频率应满足________；否则会出现________现象。",
+    "answer": "ωs≥2ωmax；频谱混叠",
+    "answerHtml": "为不失真地复现连续信号，采样角频率应满足<strong>\\(\\omega_{s}\\ge 2\\omega_{max}\\)</strong>；否则会出现<strong>频谱混叠</strong>现象。",
+    "analysis": "<p>采样定理：采样角频率 \\(\\omega_{s}\\) 必须不小于连续信号最高频率 \\(\\omega_{max}\\) 的 2 倍。若采样频率过低，采样后高频成分会折叠到低频段，即发生频谱混叠，信号无法无失真恢复。</p>"
+  },
+  {
+    "topic": "28考点·采样定理",
+    "stem": "某连续信号所含最高频率为 \\(100\\,\\mathrm{Hz}\\)，按采样定理，最低采样频率应为（　）。",
+    "options": [
+      [
+        "A",
+        "\\(50\\,\\mathrm{Hz}\\)"
+      ],
+      [
+        "B",
+        "\\(100\\,\\mathrm{Hz}\\)"
+      ],
+      [
+        "C",
+        "\\(200\\,\\mathrm{Hz}\\)"
+      ],
+      [
+        "D",
+        "\\(400\\,\\mathrm{Hz}\\)"
+      ]
+    ],
+    "answer": "C",
+    "analysis": "<p>采样定理：\\(f_{s}\\ge 2f_{max}=2\\times100=200\\,\\mathrm{Hz}\\)。</p><p>正确选项：\\(200\\,\\mathrm{Hz}\\)。</p>"
+  }
+];
+
+    const state = {
+      current: 0,
+      mode: 'answer',
+      orderMode: 'random',
+      order: questions.map((_, index) => index),
+      answers: {},
+      revealed: false,
+      optionOrders: {},
+      favorites: loadFavorites(),
+      wrong: loadWrong(),
+      visited: new Set(),
+      poolMode: 'all'
+    };
+    const questionCard = document.getElementById('questionCard');
+    const questionGrid = document.getElementById('questionGrid');
+
+    function currentQuestionId() { return state.order[state.current]; }
+    function currentQuestion() { return questions[currentQuestionId()]; }
+
+    // 当前练习题库：全部题目，或仅收藏
+    function poolIds() {
+      if (state.poolMode === 'fav') return Array.from(state.favorites).sort((a, b) => a - b);
+      if (state.poolMode === 'wrong') return wrongOrderIds();
+      return questions.map((_, i) => i);
+    }
+    function buildOrder(mode) {
+      let ids = poolIds();
+      if (mode === 'random' && state.poolMode !== 'wrong') {
+        for (let i = ids.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [ids[i], ids[j]] = [ids[j], ids[i]];
+        }
+      }
+      state.order = ids;
+      state.optionOrders = {};
+      state.current = 0;
+      state.revealed = false;
+    }
+    function toggleFavPractice() {
+      if (state.poolMode === 'fav') {
+        state.poolMode = 'all';
+        buildOrder(state.orderMode);
+        render();
+        return;
+      }
+      if (!state.favorites.size) return;
+      state.poolMode = 'fav';
+      buildOrder(state.orderMode);
+      render();
+    }
+
+    // 乱序模式：只打乱选项“内容”的顺序，显示字母始终按 A、B、C、D 排列
+    function optionLayout(q) {
+      if (q.type === 'fill') return [];
+      if (state.orderMode !== 'random') {
+        return q.options.map(([key, text]) => ({ disp: key, orig: key, text }));
+      }
+      const id = currentQuestionId();
+      if (!state.optionOrders[id]) {
+        const keys = q.options.map(o => o[0]);
+        for (let i = keys.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [keys[i], keys[j]] = [keys[j], keys[i]];
+        }
+        state.optionOrders[id] = keys;
+      }
+      const map = {};
+      q.options.forEach(([key, text]) => { map[key] = text; });
+      return state.optionOrders[id].map((orig, pos) => ({ disp: 'ABCD'[pos], orig, text: map[orig] }));
+    }
+
+    function correctDisplay(q) {
+      if (q.type === 'fill') return '';
+      const hit = optionLayout(q).find(o => o.orig === q.answer);
+      return hit ? hit.disp : q.answer;
+    }
+
+    function chosenDisplay(q) {
+      const chosen = state.answers[currentQuestionId()];
+      if (!chosen || q.type === 'fill') return chosen;
+      const hit = optionLayout(q).find(o => o.orig === chosen);
+      return hit ? hit.disp : chosen;
+    }
+
+    function isCorrect(q, record) {
+      return q.type === 'fill' ? record === 'correct' : record === q.answer;
+    }
+
+    function optionClass(key, q) {
+      const correct = correctDisplay(q);
+      if (state.mode === 'recite') return key === correct ? 'correct' : 'muted';
+      if (!state.answers[currentQuestionId()]) return '';
+      if (key === correct) return 'correct';
+      if (key === chosenDisplay(q)) return 'wrong';
+      return 'muted';
+    }
+
+    // 填空/背题时，把正确答案直接填进题干的空里
+    function fillStemWithAnswers(q) {
+      let stem = q.stem || '';
+      const blanks = (stem.match(/_{2,}/g) || []).length;
+      if (!blanks || !(q.answer || q.answerHtml)) return stem;
+      let parts = [];
+      const html = q.answerHtml || '';
+      const strongs = Array.from(html.matchAll(/<strong>([\s\S]*?)<\/strong>/g)).map((m) => m[1]);
+      if (strongs.length >= blanks) {
+        parts = strongs.slice(0, blanks);
+      } else {
+        const maths = Array.from(html.matchAll(/<span class="math">([\s\S]*?)<\/span>/g)).map((m) => m[1]);
+        if (maths.length >= blanks) {
+          parts = maths.slice(0, blanks);
+        } else {
+          const raw = (q.answer || '').split(/[；;]/).map((s) => s.trim()).filter(Boolean);
+          if (raw.length >= blanks) parts = raw.slice(0, blanks);
+        }
+      }
+      if (!parts.length) parts = [q.answer || ''];
+      let i = 0;
+      return stem.replace(/_{2,}/g, (m) => (i < parts.length ? '<span class="blank-answer">' + parts[i++] + '</span>' : m));
+    }
+
+    // 公式字号自适应：分式/根式/上下标等复杂公式放大，简单符号保持正常字号
+    function tuneMathScale(root) {
+      if (!root) return;
+      const els = Array.from(root.querySelectorAll('mjx-container'));
+      if (!els.length) return;
+      const COMPLEX = '[data-mml-node="mfrac"], [data-mml-node="msqrt"], [data-mml-node="mroot"], [data-mml-node="munderover"], [data-mml-node="munder"], [data-mml-node="mtable"]';
+      // 同一道题内公式统一字号：只要有一个复杂公式，全部都用大号，避免忽大忽小
+      const anyComplex = els.some((el) => el.querySelector(COMPLEX));
+      els.forEach((el) => {
+        if (anyComplex) el.style.fontSize = '1.12em';
+        else if (el.getAttribute('display') === 'true') el.style.fontSize = '1.1em';
+        else el.style.fontSize = '1em';
+      });
+    }
+
+    function questionHTML() {
+      const q = currentQuestion();
+      const isFill = q.type === 'fill';
+      const chosen = state.answers[currentQuestionId()];
+      const showSolution = state.mode === 'recite' || Boolean(chosen) || (isFill && state.revealed);
+      const correctLetter = isFill ? '' : correctDisplay(q);
+      const pickedLetter = isFill ? '' : chosenDisplay(q);
+      const options = isFill ? '' : optionLayout(q).map(({ disp, text }) => {
+        const cls = optionClass(disp, q);
+        let status = '';
+        if (showSolution && disp === correctLetter && !(state.mode === 'answer' && pickedLetter === disp)) status = '<span class="option-status">正确答案</span>';
+        if (state.mode === 'answer' && pickedLetter === disp && disp !== correctLetter) status = '<span class="option-status">你的选择</span>';
+        return `<button type="button" class="option ${cls}" data-option="${disp}" ${state.mode === 'recite' || chosen ? 'disabled' : ''} aria-label="选项 ${disp}"><span class="option-letter">${disp}</span><span class="option-content">${text}</span>${status}</button>`;
+      }).join('');
+
+      const isFav = state.favorites.has(currentQuestionId());
+      const responseArea = isFill
+        ? (showSolution ? '' : '<div class="recall-panel"><p>先独立回忆各空内容，再核对参考答案。</p><button type="button" class="recall-btn" id="revealBtn">显示答案</button></div>')
+        : `<div class="options ${state.mode === 'answer' ? 'answer-mode' : ''}">${options}</div>`;
+      const answerContent = isFill ? (q.answerHtml || q.answer) : correctLetter;
+      const choiceResult = !isFill && state.mode === 'answer' && pickedLetter && pickedLetter !== correctLetter
+        ? `<span class="user-wrong">你的选择：${pickedLetter}</span>` : '';
+      const fillResult = isFill && chosen
+        ? `<span class="fill-result ${chosen === 'correct' ? 'good' : 'bad'}">自评：${chosen === 'correct' ? '答对' : '需复习'}</span>` : '';
+      const selfCheck = isFill && state.mode === 'answer' && showSolution && !chosen
+        ? '<div class="self-check"><span>根据刚才的回忆情况自评</span><div><button type="button" data-grade="correct">我答对了</button><button type="button" data-grade="wrong">需要复习</button></div></div>' : '';
+      const solution = showSolution ? `<div class="solution">
+        <div class="solution-head">
+          <div class="answer-line">${isFill ? '参考答案' : '正确答案'}：${answerContent}${choiceResult}${fillResult}</div>
+          ${state.mode === 'answer' && chosen ? '<button type="button" class="redo" id="redoBtn">重做本题</button>' : ''}
+        </div>
+        ${selfCheck}
+        <h2>解题思路</h2>
+        ${q.analysis}
+        ${q.caution ? `<div class="caution"><strong>题目校注</strong>${q.caution}</div>` : ''}
+      </div>` : '';
+
+      return `<div class="question-meta">
+        <div class="tags"><span class="tag">${isFill ? '填空题' : '单选题'}</span>${wrongCountOf(currentQuestionId()) ? `<span class="wrong-chip">错 ${wrongCountOf(currentQuestionId())} 次</span>` : ''}${timed.active ? `<span class="timer-chip" id="timerChip"><i class="timer-dot"></i><b id="chipTotal">00:00</b><span class="timer-sep">·</span>本题 <b id="chipQ">0s</b></span><button type="button" class="chip-finish" id="chipPause" title="暂停计时">暂停</button><button type="button" class="chip-finish" id="chipFinish" title="结束计时并生成报告">结束</button>` : ''}</div>
+        <div class="meta-right">
+          <div class="counter"><strong>${String(state.current + 1).padStart(2, '0')}</strong> / ${state.order.length}</div>
+          <button type="button" class="fav-btn ${isFav ? 'on' : ''}" id="favBtn" aria-pressed="${isFav}" aria-label="${isFav ? '取消收藏' : '收藏本题'}" title="${isFav ? '取消收藏' : '收藏本题'}"><span class="fav-icon">${isFav ? '★' : '☆'}</span><span class="fav-text">收藏</span></button>
+        </div>
+      </div>
+      <div class="question-text">${isFill && showSolution ? fillStemWithAnswers(q) : q.stem}</div>
+      ${responseArea}
+      ${solution}
+      <div class="question-actions">
+        <button type="button" class="nav-btn" id="prevBtn" ${state.current === 0 ? 'disabled' : ''}>上一题</button>
+        <button type="button" class="nav-btn primary" id="nextBtn" ${state.current === state.order.length - 1 ? 'disabled' : ''}>下一题</button>
+      </div>
+      <div class="swipe-hint" aria-hidden="true">左右滑动切换题目</div>`;
+    }
+
+    function bindQuestionEvents() {
+      questionCard.querySelectorAll('[data-option]').forEach(btn => btn.addEventListener('click', () => chooseAnswer(btn.dataset.option)));
+      const chipFinish = document.getElementById('chipFinish');
+      if (chipFinish) chipFinish.addEventListener('click', finishTimed);
+      const chipPause = document.getElementById('chipPause');
+      if (chipPause) chipPause.addEventListener('click', togglePauseTimed);
+      const favBtn = document.getElementById('favBtn');
+      if (favBtn) favBtn.addEventListener('click', toggleFavorite);
+      questionCard.querySelectorAll('[data-grade]').forEach(btn => btn.addEventListener('click', () => {
+        const id = currentQuestionId();
+        const grade = btn.dataset.grade;
+        state.answers[id] = grade;
+        recordWrongResult(id, grade === 'correct');
+        handleWrongAfterAnswer(id, grade === 'correct');
+        timedFreezeCurrent();
+        state.revealed = true;
+        render();
+      }));
+      document.getElementById('prevBtn').addEventListener('click', () => { autoStartTimed(); goTo(state.current - 1); });
+      document.getElementById('nextBtn').addEventListener('click', () => { autoStartTimed(); goTo(state.current + 1); });
+      const reveal = document.getElementById('revealBtn');
+      if (reveal) reveal.addEventListener('click', () => { state.revealed = true; render(); });
+      const redo = document.getElementById('redoBtn');
+      if (redo) redo.addEventListener('click', () => {
+        delete state.answers[currentQuestionId()];
+        state.revealed = false;
+        render();
+      });
+    }
+
+    let questionRenderSeq = 0;
+    let pendingScrollAnchor = null;
+    let mathGaveUp = false;
+    function renderQuestionSmooth() {
+      const seq = ++questionRenderSeq;
+      const html = questionHTML();
+      const plain = () => {
+        if (seq !== questionRenderSeq) return;
+        questionCard.innerHTML = html;
+        bindQuestionEvents();
+        tuneMathScale(questionCard);
+        if (typeof timed !== 'undefined' && timed.active) updateTimerUI();
+        document.body.classList.add('math-ready');
+        if (pendingScrollAnchor !== null) {
+          const top = questionCard.getBoundingClientRect().top;
+          if (Math.abs(top - pendingScrollAnchor) > 1) window.scrollBy(0, top - pendingScrollAnchor);
+          pendingScrollAnchor = null;
+        }
+      };
+      const ready = (window.MathJax && MathJax.startup && MathJax.startup.promise)
+        ? MathJax.startup.promise
+        : Promise.resolve();
+      ready.then(() => {
+      if (seq !== questionRenderSeq) return;
+      if (!window.MathJax || typeof MathJax.typesetPromise !== 'function') {
+        // 公式引擎还没加载好：先不渲染原始 LaTeX，等引擎就绪后再渲染（期间显示“公式加载中”）
+        if (!mathGaveUp) return;
+        plain();
+        return;
+      }
+      const holder = document.createElement('div');
+      holder.className = 'question-card';
+      holder.setAttribute('aria-hidden', 'true');
+      holder.style.position = 'absolute';
+      holder.style.left = '-99999px';
+      holder.style.top = '0';
+      holder.style.width = questionCard.getBoundingClientRect().width + 'px';
+      holder.style.visibility = 'hidden';
+      holder.innerHTML = html;
+      document.body.appendChild(holder);
+      const finish = () => {
+        if (seq !== questionRenderSeq) { holder.remove(); return; }
+        tuneMathScale(holder);
+        questionCard.innerHTML = holder.innerHTML;
+        holder.remove();
+        bindQuestionEvents();
+        if (typeof timed !== 'undefined' && timed.active) updateTimerUI();
+        document.body.classList.add('math-ready');
+        if (pendingScrollAnchor !== null) {
+          const top = questionCard.getBoundingClientRect().top;
+          if (Math.abs(top - pendingScrollAnchor) > 1) window.scrollBy(0, top - pendingScrollAnchor);
+          pendingScrollAnchor = null;
+        }
+      };
+      MathJax.typesetPromise([holder]).then(finish).catch(() => { holder.remove(); if (seq === questionRenderSeq) plain(); });
+      });
+    }
+
+    function renderNavigation() {
+      questionGrid.innerHTML = state.order.map((questionId, i) => {
+        const q = questions[questionId];
+        const answer = state.answers[questionId];
+        const status = answer ? (isCorrect(q, answer) ? 'done' : 'error') : '';
+        const fav = state.favorites.has(questionId) ? 'fav' : '';
+        return `<button type="button" class="q-num ${i === state.current ? 'current' : ''} ${status} ${fav}" data-index="${i}" aria-label="第 ${i + 1} 题">${i + 1}</button>`;
+      }).join('');
+      questionGrid.querySelectorAll('[data-index]').forEach(btn => btn.addEventListener('click', () => goTo(Number(btn.dataset.index))));
+    }
+
+    function renderStats() {
+      const inPool = new Set(state.order);
+      const entries = Object.entries(state.answers).filter(([i]) => inPool.has(Number(i)));
+      const answered = entries.length;
+      const correct = entries.filter(([i, a]) => isCorrect(questions[i], a)).length;
+      const total = state.order.length || 1;
+      const visited = Array.from(state.visited).filter((i) => inPool.has(i)).length;
+      document.getElementById('answeredStat').textContent = answered;
+      document.getElementById('correctStat').textContent = correct;
+      document.getElementById('rateStat').textContent = answered ? `${Math.round(correct / answered * 100)}%` : '—';
+      document.getElementById('progressBar').style.width = `${Math.min(visited / total, 1) * 100}%`;
+      document.getElementById('progressText').textContent = `${visited} / ${state.order.length}`;
+      document.getElementById('modeLabel').textContent = state.mode === 'answer' ? '答题模式' : '背题模式';
+    }
+
+
+    function loadFavorites() {
+      try {
+        const raw = localStorage.getItem('autocontrol-quiz-favorites-v1');
+        const arr = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(arr) ? arr : []);
+      } catch (e) { return new Set(); }
+    }
+
+    function saveFavorites() {
+      try { localStorage.setItem('autocontrol-quiz-favorites-v1', JSON.stringify(Array.from(state.favorites))); } catch (e) {}
+    }
+
+    function loadWrong() {
+      try {
+        const raw = localStorage.getItem('autocontrol-quiz-wrong-v1');
+        const obj = raw ? JSON.parse(raw) : {};
+        if (!obj || typeof obj !== 'object') return {};
+        const out = {};
+        Object.keys(obj).forEach((k) => { const n = Number(obj[k]) || 0; if (n > 0) out[k] = n; });
+        return out;
+      } catch (e) { return {}; }
+    }
+    function saveWrong() {
+      try { localStorage.setItem('autocontrol-quiz-wrong-v1', JSON.stringify(state.wrong)); } catch (e) {}
+    }
+    function wrongCountOf(id) { return state.wrong[id] || 0; }
+    function wrongOrderIds() {
+      return Object.keys(state.wrong)
+        .map(Number)
+        .filter((id) => state.wrong[id] > 0)
+        .sort((a, b) => state.wrong[b] - state.wrong[a] || a - b);
+    }
+    function recordWrongResult(id, correct) {
+      if (correct) {
+        if (state.wrong[id]) { delete state.wrong[id]; saveWrong(); }
+      } else {
+        state.wrong[id] = (state.wrong[id] || 0) + 1;
+        saveWrong();
+      }
+      renderWrong();
+    }
+    function handleWrongAfterAnswer(id, correct) {
+      if (state.poolMode !== 'wrong') return;
+      if (!correct) return;
+      const idx = state.order.indexOf(id);
+      const rest = wrongOrderIds();
+      if (!rest.length) {
+        state.poolMode = 'all';
+        buildOrder(state.orderMode);
+        return;
+      }
+      state.order = rest;
+      state.current = Math.max(0, Math.min(idx, rest.length - 1));
+      state.revealed = false;
+    }
+    function toggleWrongPractice() {
+      if (state.poolMode === 'wrong') {
+        state.poolMode = 'all';
+        buildOrder(state.orderMode);
+        render();
+        return;
+      }
+      if (!wrongOrderIds().length) return;
+      state.poolMode = 'wrong';
+      // 进入错题集时清掉这些题的旧作答，方便重新做一遍（答对即消除）
+      wrongOrderIds().forEach((id) => { delete state.answers[id]; });
+      buildOrder(state.orderMode);
+      render();
+    }
+    function renderWrong() {
+      const btn = document.getElementById('wrongPracticeBtn');
+      const count = document.getElementById('wrongCount');
+      if (!btn || !count) return;
+      const n = wrongOrderIds().length;
+      const inWrong = state.poolMode === 'wrong';
+      count.textContent = n;
+      btn.disabled = !inWrong && n === 0;
+      btn.classList.toggle('on', inWrong);
+      btn.title = inWrong ? '退出错题集，回到全部题目' : (n ? '进入错题集：按答错次数从多到少复习' : '还没有错题');
+      const clearBtn = document.getElementById('wrongClearBtn');
+      if (clearBtn) clearBtn.disabled = n === 0;
+    }
+    function clearWrongCollection() {
+      if (!wrongOrderIds().length) return;
+      if (!window.confirm('确定清空错题集吗？清空后无法恢复。')) return;
+      state.wrong = {};
+      saveWrong();
+      if (state.poolMode === 'wrong') {
+        state.poolMode = 'all';
+        buildOrder(state.orderMode);
+      }
+      render();
+    }
+
+    function updateFavButton() {
+      const btn = document.getElementById('favBtn');
+      if (!btn) return;
+      const isFav = state.favorites.has(currentQuestionId());
+      btn.classList.toggle('on', isFav);
+      btn.setAttribute('aria-pressed', String(isFav));
+      btn.setAttribute('title', isFav ? '取消收藏' : '收藏本题');
+      btn.setAttribute('aria-label', isFav ? '取消收藏' : '收藏本题');
+      const icon = btn.querySelector('.fav-icon');
+      if (icon) icon.textContent = isFav ? '★' : '☆';
+    }
+
+    function toggleFavorite() {
+      const id = currentQuestionId();
+      const removed = state.favorites.has(id);
+      if (removed) state.favorites.delete(id);
+      else state.favorites.add(id);
+      saveFavorites();
+      // 收藏夹刷题模式下取消收藏：本题从当前套题中移除
+      if (state.poolMode === 'fav' && removed) {
+        const idx = state.order.indexOf(id);
+        state.order = state.order.filter(x => x !== id);
+        if (!state.order.length) {
+          state.poolMode = 'all';
+          buildOrder(state.orderMode);
+        } else {
+          state.current = Math.max(0, Math.min(idx, state.order.length - 1));
+          state.revealed = false;
+        }
+        render();
+        return;
+      }
+      // 只更新收藏相关元素，不重绘题目卡片，避免 MathJax 重新排版引起的位移/缩放
+      updateFavButton();
+      const navBtn = questionGrid.querySelector('.q-num[data-index="' + state.current + '"]');
+      if (navBtn) navBtn.classList.toggle('fav', state.favorites.has(id));
+      renderFavorites();
+    }
+
+    function renderFavorites() {
+      const count = document.getElementById('favCount');
+      const btn = document.getElementById('favPracticeBtn');
+      if (!count || !btn) return;
+      const n = state.favorites.size;
+      const inFav = state.poolMode === 'fav';
+      count.textContent = n;
+      btn.classList.toggle('on', inFav);
+      btn.disabled = !inFav && n === 0;
+      const icon = btn.querySelector('.fav-toggle-icon');
+      if (icon) icon.textContent = inFav ? '★' : '☆';
+      btn.title = inFav ? '退出收藏夹，回到全部题目' : (n ? '进入收藏夹，只刷已收藏的题目' : '还没有收藏的题目');
+    }
+
+    function typesetMath() {
+      if (!window.MathJax) return;
+      var target = document.getElementById('questionCard');
+      var run = function () {
+        if (MathJax.typesetPromise) MathJax.typesetPromise([target]).catch(function () {});
+      };
+      if (MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(run);
+      else run();
+    }
+
+    function render() {
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === state.mode));
+      document.querySelectorAll('.order-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.order === state.orderMode));
+      document.getElementById('orderSwitch').hidden = true; /* 正序/乱序入口已隐藏，默认乱序 */
+      state.visited.add(currentQuestionId());
+      renderQuestionSmooth();
+      renderNavigation();
+      renderFavorites();
+      renderWrong();
+      renderStats();
+    }
+
+    function chooseAnswer(dispKey) {
+      if (state.mode !== 'answer' || currentQuestion().type === 'fill' || state.answers[currentQuestionId()]) return;
+      autoStartTimed();
+      const q = currentQuestion();
+      const id = currentQuestionId();
+      const hit = optionLayout(q).find(o => o.disp === dispKey);
+      const orig = hit ? hit.orig : dispKey;
+      state.answers[id] = orig;
+      const correct = orig === q.answer;
+      recordWrongResult(id, correct);
+      handleWrongAfterAnswer(id, correct);
+      timedFreezeCurrent();
+      render();
+    }
+
+    function setOrder(mode) {
+      if (mode === state.orderMode) return; // 点当前顺序按钮不重置
+      const hasRecords = Object.keys(state.answers).length > 0 || state.visited.size > 0;
+      if (hasRecords && !window.confirm('切换题目顺序会重新开始，清空本次的作答记录和完成进度，确定吗？')) return;
+      if (timed.active) { timedNoteCurrent(); timed.qStartAt = Date.now(); }
+      const previousOrder = state.order.join(',');
+      state.orderMode = mode;
+      state.optionOrders = {};
+      // 正序/乱序互相切换 = 重新开始（清空作答与进度）
+      state.answers = {};
+      state.visited = new Set();
+      buildOrder(mode);
+      if (mode === 'random' && state.order.length > 1 && state.order.join(',') === previousOrder) {
+        buildOrder(mode);
+      }
+      render();
+    }
+
+
+    /* ================= 计时练习 ================= */
+    const timed = { active: false, paused: false, pausedAt: 0, startedAt: 0, endedAt: 0, qStartAt: 0, qId: null, currentDone: false, per: {}, timerId: 0 };
+
+    function fmtClock(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+    function fmtDur(ms) {
+      const total = Math.max(0, Math.round(ms / 1000));
+      if (total < 60) return total + 's';
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return s ? m + 'm' + String(s).padStart(2, '0') + 's' : m + '分钟';
+    }
+    function timedNoteCurrent() {
+      if (!timed.active) return;
+      const now = timed.paused ? timed.pausedAt : Date.now();
+      const id = currentQuestionId();
+      if (!timed.qStartAt) { timed.qStartAt = now; return; }
+      if (timed.qId === id && timed.currentDone) { timed.qStartAt = now; return; }
+      timed.per[id] = (timed.per[id] || 0) + (now - timed.qStartAt);
+      timed.qStartAt = now;
+    }
+    // 作答后：本题停止计时（不再累加），直到切到下一题
+    function timedFreezeCurrent() {
+      if (!timed.active) return;
+      timedNoteCurrent();
+      timed.currentDone = true;
+      timed.qId = currentQuestionId();
+      timed.qStartAt = timed.paused ? timed.pausedAt : Date.now();
+      updateTimerUI();
+    }
+    // 切换到新题：重新开始计本题用时
+    function timedStartNewQuestion() {
+      if (!timed.active) return;
+      timed.qId = currentQuestionId();
+      timed.currentDone = false;
+      timed.qStartAt = timed.paused ? timed.pausedAt : Date.now();
+    }
+    function updateTimerUI() {
+      if (!timed.active) return;
+      const now = timed.paused ? timed.pausedAt : Date.now();
+      const elTotal = document.getElementById('chipTotal');
+      const elQ = document.getElementById('chipQ');
+      if (elTotal) elTotal.textContent = fmtClock(now - timed.startedAt);
+      if (elQ) {
+        if (timed.currentDone) elQ.textContent = fmtDur(timed.per[currentQuestionId()] || 0);
+        else elQ.textContent = fmtDur(now - timed.qStartAt);
+      }
+      const chip = document.getElementById('timerChip');
+      if (chip) chip.classList.toggle('paused', timed.paused);
+      const pauseBtn = document.getElementById('chipPause');
+      if (pauseBtn) pauseBtn.textContent = timed.paused ? '继续' : '暂停';
+    }
+    function togglePauseTimed() {
+      if (!timed.active) return;
+      if (!timed.paused) {
+        timed.paused = true;
+        timed.pausedAt = Date.now();
+      } else {
+        const delta = Date.now() - timed.pausedAt;
+        timed.startedAt += delta;
+        timed.qStartAt += delta;
+        timed.paused = false;
+        timed.pausedAt = 0;
+      }
+      updateTimerUI();
+    }
+    function startTimed(force) {
+      if (timed.active) return;
+      if (!force && Object.keys(state.answers).length && !window.confirm('开始计时练习会清空当前答题记录并从头开始，确定吗？')) return;
+      clearInterval(timed.timerId);
+      state.answers = {};
+      state.visited = new Set();
+      state.revealed = false;
+      state.mode = 'answer';
+      buildOrder(state.orderMode);
+      timed.active = true;
+      timed.paused = false;
+      timed.pausedAt = 0;
+      timed.startedAt = Date.now();
+      timed.qStartAt = timed.startedAt;
+      timed.qId = currentQuestionId();
+      timed.currentDone = false;
+      timed.endedAt = 0;
+      timed.per = {};
+      const btn = document.getElementById('timedStartBtn');
+      btn.disabled = true;
+      btn.textContent = '计时进行中…';
+      render();
+      timed.timerId = setInterval(updateTimerUI, 500);
+      updateTimerUI();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function autoStartTimed() {
+      if (timed.active) return;
+      timed.active = true;
+      timed.paused = false;
+      timed.pausedAt = 0;
+      timed.startedAt = Date.now();
+      timed.qStartAt = timed.startedAt;
+      timed.qId = currentQuestionId();
+      timed.currentDone = false;
+      timed.endedAt = 0;
+      timed.per = {};
+      const btn = document.getElementById('timedStartBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '计时进行中…'; }
+      clearInterval(timed.timerId);
+      timed.timerId = setInterval(updateTimerUI, 500);
+      updateTimerUI();
+    }
+    function finishTimed() {
+      if (!timed.active) return;
+      if (timed.paused) {
+        timedNoteCurrent();
+        timed.endedAt = timed.pausedAt;
+        timed.paused = false;
+      } else {
+        timedNoteCurrent();
+        timed.endedAt = Date.now();
+      }
+      timed.active = false;
+      clearInterval(timed.timerId);
+      const btn = document.getElementById('timedStartBtn');
+      btn.disabled = false;
+      btn.textContent = '开始计时练习';
+      render();
+      showTimedReport();
+    }
+    function showTimedReport() {
+      const total = Math.max(0, timed.endedAt - timed.startedAt);
+      const rows = state.order.map((id) => {
+        const q = questions[id];
+        const rec = state.answers[id];
+        return { id: id, q: q, time: timed.per[id] || 0, answered: !!rec, correct: !!rec && isCorrect(q, rec) };
+      });
+      const answered = rows.filter((r) => r.answered).length;
+      const correct = rows.filter((r) => r.correct).length;
+      const timedRows = rows.filter((r) => r.time > 0);
+      const avg = timedRows.length ? timedRows.reduce((a, r) => a + r.time, 0) / timedRows.length : 0;
+      const sorted = rows.slice().sort((a, b) => b.time - a.time);
+      const visited = sorted.filter((r) => r.time > 0);
+      const slowCount = Math.min(20, Math.max(3, Math.ceil(visited.length * 0.2)));
+      let slowList = visited.filter((r) => r.time >= 2500).slice(0, slowCount);
+      if (!slowList.length && visited.length) slowList = [visited[0]];
+      const slowIds = new Set(slowList.map((r) => r.id));
+      document.getElementById('reportSummary').innerHTML = [
+        '<div class="report-stat"><strong>' + fmtClock(total) + '</strong><span>总用时</span></div>',
+        '<div class="report-stat"><strong>' + answered + ' / ' + rows.length + '</strong><span>已答题目</span></div>',
+        '<div class="report-stat"><strong>' + correct + '</strong><span>答对</span></div>',
+        '<div class="report-stat"><strong>' + (answered ? Math.round(correct / answered * 100) + '%' : '—') + '</strong><span>正确率</span></div>',
+        '<div class="report-stat"><strong>' + fmtDur(avg) + '</strong><span>平均每题用时</span></div>',
+        '<div class="report-stat"><strong>' + (rows.length - answered) + '</strong><span>未作答</span></div>',
+        '<div class="report-stat"><strong>' + slowIds.size + '</strong><span>不熟悉题目</span></div>'
+      ].join('');
+      const listed = sorted.filter((r) => r.time > 0 || r.answered);
+      document.getElementById('reportList').innerHTML = listed.length ? listed.map((r, idx) => {
+        const idxInOrder = state.order.indexOf(r.id);
+        let badge;
+        if (!r.answered) badge = '<span class="badge bad">未作答</span>';
+        else if (!r.correct) badge = '<span class="badge bad">答错</span>';
+        else if (slowIds.has(r.id)) badge = '<span class="badge">不熟·用时偏长</span>';
+        else badge = '<span class="badge ok">正常</span>';
+        return '<button type="button" class="report-row ' + (slowIds.has(r.id) ? 'slow' : '') + '" data-qid="' + r.id + '">' +
+          '<span class="rank">' + (idx + 1) + '</span>' +
+          '<span class="when">第 ' + (idxInOrder + 1) + ' 题 · ' + (r.q.topic || '') + '</span>' +
+          '<span class="when">' + fmtDur(r.time) + '</span>' +
+          badge + '</button>';
+      }).join('') : '<div class="report-empty">本次没有作答记录，下次记得每题停一下再走～</div>';
+      document.querySelectorAll('#reportList .report-row').forEach((el) => {
+        el.addEventListener('click', () => {
+          const qid = Number(el.dataset.qid);
+          const idx = state.order.indexOf(qid);
+          document.getElementById('reportMask').hidden = true;
+          if (idx >= 0) { state.mode = 'recite'; goTo(idx); }
+        });
+      });
+      document.getElementById('reportMask').hidden = false;
+    }
+    function closeTimedReport() {
+      document.getElementById('reportMask').hidden = true;
+    }
+
+    function goTo(index) {
+      if (index < 0 || index >= state.order.length) return;
+      if (index !== state.current) state.visited.add(currentQuestionId());
+      timedNoteCurrent();
+      state.current = index;
+      timedStartNewQuestion();
+      state.revealed = false;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ---- 移动端左右滑动切题 ---- */
+    function swipeNavigate(delta) {
+      const target = state.current + delta;
+      if (state.order.length < 2 || target < 0 || target >= state.order.length) return;
+      goTo(target);
+      const cls = delta > 0 ? 'swipe-anim-next' : 'swipe-anim-prev';
+      questionCard.classList.remove('swipe-anim-next', 'swipe-anim-prev');
+      void questionCard.offsetWidth;
+      questionCard.classList.add(cls);
+      setTimeout(() => questionCard.classList.remove(cls), 320);
+    }
+
+    (function bindSwipe() {
+      let startX = 0, startY = 0, tracking = false;
+      questionCard.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) { tracking = false; return; }
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        tracking = true;
+      }, { passive: true });
+      questionCard.addEventListener('touchmove', (e) => {
+        if (!tracking) return;
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) tracking = false; // 纵向滚动优先
+      }, { passive: true });
+      questionCard.addEventListener('touchend', (e) => {
+        if (!tracking) return;
+        tracking = false;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (Math.abs(dx) < 60) return;
+        if (Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        // 宽公式横向滚动时不切题
+        const el = e.target && e.target.closest ? e.target.closest('mjx-container') : null;
+        if (el && el.scrollWidth > el.clientWidth + 4) return;
+        autoStartTimed();
+        swipeNavigate(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    })();
+
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', () => {
+      if (btn.dataset.mode === state.mode) return;
+      // 记住切换前题目卡片在视口中的位置，渲染后补回来，避免“位移感”
+      pendingScrollAnchor = questionCard.getBoundingClientRect().top;
+      state.mode = btn.dataset.mode;
+      render();
+    }));
+
+    document.querySelectorAll('.order-btn').forEach(btn => btn.addEventListener('click', () => setOrder(btn.dataset.order)));
+
+    document.getElementById('timedStartBtn').addEventListener('click', () => startTimed(false));
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+      document.getElementById('startMask').hidden = true;
+      startTimed(true);
+    });
+    document.getElementById('startSkipBtn').addEventListener('click', () => {
+      document.getElementById('startMask').hidden = true;
+    });
+    document.getElementById('reportCloseBtn').addEventListener('click', closeTimedReport);
+    document.getElementById('reportDone').addEventListener('click', closeTimedReport);
+    document.getElementById('reportRestart').addEventListener('click', () => { closeTimedReport(); startTimed(true); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !document.getElementById('reportMask').hidden) closeTimedReport();
+    });
+
+    const favPracticeBtn = document.getElementById('favPracticeBtn');
+    if (favPracticeBtn) favPracticeBtn.addEventListener('click', toggleFavPractice);
+    const wrongPracticeBtn = document.getElementById('wrongPracticeBtn');
+    if (wrongPracticeBtn) wrongPracticeBtn.addEventListener('click', toggleWrongPractice);
+    const wrongClearBtn = document.getElementById('wrongClearBtn');
+    if (wrongClearBtn) wrongClearBtn.addEventListener('click', clearWrongCollection);
+
+    // 默认每次打开都是乱序（题目与选项一起打乱）
+    buildOrder('random');
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+      if (!Object.keys(state.answers).length || window.confirm('确定清空全部答题记录吗？')) {
+        state.answers = {};
+        state.visited = new Set();
+        state.mode = 'answer';
+        state.orderMode = 'random';
+        buildOrder('random');
+        // 计时从 0 重新开始
+        if (timed.active) {
+          timed.paused = false;
+          timed.pausedAt = 0;
+          timed.startedAt = Date.now();
+          timed.qStartAt = timed.startedAt;
+          timed.endedAt = 0;
+          timed.per = {};
+        } else {
+          autoStartTimed();
+        }
+        render();
+        updateTimerUI();
+      }
+    });
+
+    render();
+
+    // 在线版 MathJax 异步加载：就绪后补渲染一次，确保公式显示
+    (function ensureMathReady() {
+      const t0 = Date.now();
+      (function loop() {
+        if (window.MathJax && MathJax.startup && MathJax.startup.promise) {
+          MathJax.startup.promise.then(() => { render(); }).catch(() => {});
+          return;
+        }
+        const waitMs = Date.now() - t0;
+        const tip = document.getElementById('mathLoadingText');
+        if (tip && waitMs > 8000) tip.textContent = '公式引擎加载较慢，可刷新页面重试…';
+        if (waitMs > 30000) {
+          mathGaveUp = true;
+          document.body.classList.add('math-ready');
+          render();
+          return;
+        }
+        setTimeout(loop, 100);
+      })();
+    })();
+  </script>
+</body>
+</html>
