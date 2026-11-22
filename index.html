@@ -3005,17 +3005,22 @@ window.MathJax = {
         : m));
     }
 
-    // 公式字号自适应：同一题内统一（有复杂公式就整题略放大）
+    // 公式字号自适应：题干里的公式与文字同号，选项里的复杂公式略放大，解析里适中
     function tuneMathScale(root) {
       if (!root) return;
       const els = Array.from(root.querySelectorAll('mjx-container'));
       if (!els.length) return;
       const COMPLEX = '[data-mml-node="mfrac"], [data-mml-node="msqrt"], [data-mml-node="mroot"], [data-mml-node="munderover"], [data-mml-node="munder"], [data-mml-node="mtable"]';
-      const anyComplex = els.some((el) => el.querySelector(COMPLEX));
+      const optionHasComplex = els.some((el) => el.closest('.option-content') && el.querySelector(COMPLEX));
       els.forEach((el) => {
-        if (anyComplex) el.style.fontSize = '1.12em';
-        else if (el.getAttribute('display') === 'true') el.style.fontSize = '1.1em';
-        else el.style.fontSize = '1em';
+        const inStem = !!el.closest('.question-text');
+        const inOption = !!el.closest('.option-content');
+        const complex = !!el.querySelector(COMPLEX);
+        let size;
+        if (inStem) size = el.getAttribute('display') === 'true' ? '1.05em' : '1em';
+        else if (inOption) size = optionHasComplex ? '1.12em' : '1em';
+        else size = complex ? '1.05em' : '1em';
+        el.style.fontSize = size;
       });
     }
 
