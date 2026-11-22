@@ -1125,8 +1125,9 @@ window.MathJax = {
           if (sents.length > 1) parts = sents;
         }
         const CIRCLED = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+        const stripNum = (s) => s.replace(/^[①-⑳]\s*/, '').replace(/^（\d+）\s*/, '').replace(/^\d+[.、]\s*/, '');
         const ansHtml = parts.length > 1
-          ? parts.map((s, i) => '<div class="paper-key-line"><span class="paper-key-no">' + (CIRCLED[i] || (i + 1) + '.') + '</span>' + s + '</div>').join('')
+          ? parts.map((s, i) => '<div class="paper-key-line"><span class="paper-key-no">' + (CIRCLED[i] || (i + 1) + '.') + '</span>' + stripNum(s) + '</div>').join('')
           : it.answer;
         return '<article class="paper-card">' +
           '<div class="paper-meta"><span class="paper-star" title="老师 28 条考点覆盖">🌟</span>' + (PAPER_NAMES[it.paper - 1] || '预测卷') + ' · ' + kind + ' ' + labelOf(it) + '</div>' +
