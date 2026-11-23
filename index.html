@@ -595,6 +595,12 @@
     .paper-wrap { max-width: 1100px; margin: 0 auto; padding: 26px 24px 70px; }
     .paper-title { margin: 0 0 6px; font-size: 22px; }
     .paper-sub { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+    .paper-loading-tip {
+      padding: 10px 14px; margin: 0 0 12px; border-radius: 12px;
+      background: var(--green-soft); color: var(--green-dark);
+      font-size: 13px; font-weight: 700;
+    }
+    #paperList.is-loading { visibility: hidden; min-height: 160px; }
     .paper-card { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 16px; }
     .paper-meta { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 10px; }
     .paper-star { margin-right: 4px; }
@@ -606,6 +612,7 @@
     .paper-q figure svg, .paper-sol figure svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
     .paper-actions { margin-top: 14px; }
     .paper-toggle { border: 0; border-radius: 999px; padding: 8px 18px; background: var(--green-soft); color: var(--green-dark); font-weight: 700; cursor: pointer; font-size: 13px; }
+    .paper-toggle:disabled { opacity: .6; cursor: default; }
     .paper-ans { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
     .paper-key { color: var(--green-dark); font-weight: 600; font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
     .paper-key-label { display: block; margin-bottom: 2px; }
@@ -703,6 +710,7 @@
   <main class="paper-wrap" id="paperView" hidden>
     <h2 class="paper-title" id="paperTitle">简答题</h2>
     <p class="paper-sub" id="paperSub"></p>
+    <div class="paper-loading-tip" id="paperLoadingTip" hidden>公式排版中…</div>
     <div id="paperList"></div>
   </main>
 
@@ -1090,7 +1098,11 @@ window.MathJax = {
       });
     }
 
+    let paperRenderSeq = 0;
     function renderPaper(sec) {
+      const seq = ++paperRenderSeq;
+      const tip = document.getElementById('paperLoadingTip');
+      const listEl = document.getElementById('paperList');
       if (sec === 'exam') {
         document.getElementById('paperTitle').textContent = '2025-2026 学年第一学期 · 自动控制原理考核试题';
         document.getElementById('paperSub').textContent = '原卷 5 页 · 左右滑动查看，可双指放大';
@@ -1098,7 +1110,9 @@ window.MathJax = {
         for (let n = 1; n <= 5; n++) {
           html += '<div class="exam-page"><img src="exam2025/exam2025-' + n + '.jpg" loading="lazy" alt="真题第 ' + n + ' 页"></div>';
         }
-        document.getElementById('paperList').innerHTML = html;
+        listEl.innerHTML = html;
+        listEl.classList.remove('is-loading');
+        if (tip) tip.hidden = true;
         return;
       }
       const rawList = paperData[sec] || [];
@@ -1113,7 +1127,7 @@ window.MathJax = {
       const labelOf = (it) => rawList.filter((x) => x.paper === it.paper && (x.kind || '') === (it.kind || '')).indexOf(it) + 1;
       document.getElementById('paperTitle').textContent = sec === 'short' ? '简答题' : '计算题（含综合题）';
       document.getElementById('paperSub').textContent = '共 ' + list.length + ' 题 · 已按由易到难排序 · 点「显示答案」看参考答案与解题步骤';
-      document.getElementById('paperList').innerHTML = list.map((it, idx) => {
+      listEl.innerHTML = list.map((it, idx) => {
         const kind = it.kind || '简答';
         // 多个要点上下排，一眼看清
         const cleanPart = (s) => s.replace(/^(<br\s*\/?>|\s)+/i, '').replace(/(<br\s*\/?>|\s)+$/i, '').trim();
@@ -1137,25 +1151,57 @@ window.MathJax = {
           '</article>';
       }).join('');
       document.querySelectorAll('#paperList .paper-toggle').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
           const ans = btn.closest('.paper-card').querySelector('.paper-ans');
-          const show = ans.hidden;
-          ans.hidden = !show;
-          btn.textContent = show ? '收起答案' : '显示答案';
+          if (!ans.hidden) { ans.hidden = true; btn.textContent = '显示答案'; return; }
+          // 手机端：先把答案里的公式排好版再展示，避免看到“没渲染完”的原始公式
+          if (ans.querySelector('mjx-container') === null && ans.innerHTML.indexOf('\\(') >= 0) {
+            btn.disabled = true;
+            btn.textContent = '公式排版中…';
+            await typesetWhenReady(ans);
+            btn.disabled = false;
+            btn.textContent = '收起答案';
+          } else {
+            btn.textContent = '收起答案';
+          }
+          ans.hidden = false;
         });
       });
-      typesetPaper();
+      if (tip) tip.hidden = false;
+      listEl.classList.add('is-loading');
+      typesetPaper(seq).then(() => {
+        if (seq !== paperRenderSeq) return;
+        listEl.classList.remove('is-loading');
+        if (tip) tip.hidden = true;
+      });
     }
-    function typesetPaper() {
-      const el = document.getElementById('paperList');
-      if (!el) return;
-      (function run() {
-        if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
-          MathJax.typesetPromise([el]).then(() => { tuneMathScale(el); }).catch(() => {});
-        } else {
-          setTimeout(run, 150);
-        }
-      })();
+    // 等公式引擎就绪后排版指定元素，返回 Promise
+    function typesetWhenReady(el) {
+      return new Promise((resolve) => {
+        (function run() {
+          if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
+            MathJax.typesetPromise([el]).then(() => resolve()).catch(() => resolve());
+          } else {
+            setTimeout(run, 150);
+          }
+        })();
+      });
+    }
+
+    function typesetPaper(seq) {
+      return new Promise((resolve) => {
+        const el = document.getElementById('paperList');
+        if (!el) { resolve(); return; }
+        (function run() {
+          if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
+            MathJax.typesetPromise([el])
+              .then(() => { tuneMathScale(el); resolve(); })
+              .catch(() => resolve());
+          } else {
+            setTimeout(run, 150);
+          }
+        })();
+      });
     }
 
     function renderNavigation() {
