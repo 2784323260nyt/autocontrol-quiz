@@ -851,10 +851,10 @@
   @media (max-width: 700px) {
     figure.exam-fig { display: block !important; width: 100% !important; max-width: 100% !important; margin: 12px 0 !important; padding: 0 !important; }
     .exam-fig img { display: block !important; width: 100% !important; max-width: 100% !important; height: auto !important; margin: 0 auto !important; }
-    /* 顶栏改为两行：品牌一行，标签整行铺满，避免右侧空一截 */
-    .topbar-inner { flex-wrap: wrap !important; row-gap: 6px !important; padding: 8px 12px !important; }
-    .top-tabs { order: 2; width: 100% !important; flex: 1 1 100% !important; justify-content: space-between !important; }
-    .top-tab { flex: 1 1 0 !important; text-align: center; padding: 6px 4px !important; }
+    /* 顶栏保持一行：标签胶囊占满剩余宽度，右侧不留空 */
+    .topbar-inner { flex-wrap: nowrap !important; gap: 8px !important; padding: 9px 12px !important; }
+    .top-tabs { flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; justify-content: space-between !important; overflow: hidden !important; }
+    .top-tab { flex: 0 1 auto !important; text-align: center; padding: 6px 8px !important; font-size: 12px; }
   }
   @media (max-width: 460px) {
     .topbar-inner { gap: 6px; padding: 9px 10px; }
