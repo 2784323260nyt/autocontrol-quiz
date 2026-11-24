@@ -845,6 +845,9 @@
   }
 </style>
 <style id="mobile-fix-2">
+  .paper-chevron { display: none !important; }
+  .paper-head { gap: 8px; }
+  .paper-sol, .paper-sol p, .paper-q, .question-text, .option-content { line-break: strict; }
   @media (max-width: 700px) {
     figure.exam-fig { display: block !important; width: 100% !important; max-width: 100% !important; margin: 12px 0 !important; padding: 0 !important; }
     .exam-fig img { display: block !important; width: 100% !important; max-width: 100% !important; height: auto !important; margin: 0 auto !important; }
@@ -1451,11 +1454,29 @@ window.MathJax = {
       });
     }
     // 等公式引擎就绪后排版指定元素，返回 Promise
+    // 让公式紧邻的标点不单独折行：把 mjx-container 与其后紧跟的标点包进不换行 span
+    const PUNCT_GLUE = '。，、；：！？）】》”’.';
+    function gluePunct(root) {
+      if (!root || !root.querySelectorAll) return;
+      root.querySelectorAll('mjx-container').forEach((m) => {
+        const nx = m.nextSibling;
+        if (!nx || nx.nodeType !== 3) return;
+        const txt = nx.nodeValue || '';
+        if (!txt || PUNCT_GLUE.indexOf(txt[0]) < 0) return;
+        const span = document.createElement('span');
+        span.style.whiteSpace = 'nowrap';
+        m.parentNode.insertBefore(span, m);
+        span.appendChild(m);
+        span.appendChild(document.createTextNode(txt[0]));
+        nx.nodeValue = txt.slice(1);
+      });
+    }
+
     function typesetWhenReady(el) {
       return new Promise((resolve) => {
         (function run() {
           if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
-            MathJax.typesetPromise([el]).then(() => resolve()).catch(() => resolve());
+            MathJax.typesetPromise([el]).then(() => { gluePunct(el); resolve(); }).catch(() => resolve());
           } else {
             setTimeout(run, 150);
           }
@@ -1470,7 +1491,7 @@ window.MathJax = {
         (function run() {
           if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
             MathJax.typesetPromise([el])
-              .then(() => { tuneMathScale(el); resolve(); })
+              .then(() => { tuneMathScale(el); gluePunct(el); resolve(); })
               .catch(() => resolve());
           } else {
             setTimeout(run, 150);
@@ -1657,7 +1678,7 @@ window.MathJax = {
       if (!window.MathJax) return;
       var target = document.getElementById('questionCard');
       var run = function () {
-        if (MathJax.typesetPromise) MathJax.typesetPromise([target]).catch(function () {});
+        if (MathJax.typesetPromise) MathJax.typesetPromise([target]).then(function () { gluePunct(target); }).catch(function () {});
       };
       if (MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(run);
       else run();
