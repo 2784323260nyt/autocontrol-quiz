@@ -269,7 +269,7 @@
       .topbar-inner { padding: 12px 15px; gap: 10px; }
       h1 { font-size: 16px; }
       .brand p { display: none; }
-      .mode-btn, .order-btn { padding: 6px 13px; font-size: 13px; }
+      .mode-btn, .order-btn { padding: 6px 9px; font-size: 12px; }
       .wrap { padding: 16px 13px 30px; }
       .question-card { padding: 20px 16px; border-radius: 18px; }
       .question-text { font-size: 16px; }
@@ -817,7 +817,6 @@
         <button class="top-tab" data-section="short" type="button">简答题</button>
         <button class="top-tab" data-section="calc" type="button">计算题</button>
         <button class="top-tab" data-section="exam" type="button">真题卷</button>
-        <button class="top-tab" data-section="exam2" type="button">考试模式</button>
       </nav>
     </div>
   </header>
@@ -829,6 +828,7 @@
         <div class="mode-switch" role="group" aria-label="学习模式">
           <button class="mode-btn active" data-mode="answer" type="button">答题模式</button>
           <button class="mode-btn" data-mode="recite" type="button">背题模式</button>
+          <button class="mode-btn" data-mode="exam" type="button">考试模式</button>
         </div>
         <div class="mode-switch order-switch" id="orderSwitch" role="group" aria-label="答题顺序">
           <button class="order-btn active" data-order="sequential" type="button">正序</button>
@@ -1242,7 +1242,7 @@ window.MathJax = {
     function switchSection(sec) {
       if (sec === state.section) return;
       state.section = sec;
-      document.querySelectorAll('.top-tab').forEach((b) => b.classList.toggle('active', b.dataset.section === sec));
+      document.querySelectorAll('.top-tab').forEach((b) => b.classList.toggle('active', b.dataset.section === (sec === 'exam2' ? 'quiz' : sec)));
       const isQuiz = sec === 'quiz';
       const isExam = sec === 'exam2';
       document.querySelector('main.wrap').hidden = !isQuiz;
@@ -1889,6 +1889,15 @@ window.MathJax = {
     })();
 
     document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', () => {
+      if (btn.dataset.mode === 'exam') {
+        switchSection('exam2');
+        document.querySelectorAll('.mode-btn').forEach((x) => x.classList.toggle('active', x === btn));
+        return;
+      }
+      if (state.section === 'exam2') {
+        switchSection('quiz');
+        document.querySelectorAll('.mode-btn').forEach((x) => x.classList.toggle('active', x.dataset.mode === btn.dataset.mode));
+      }
       if (btn.dataset.mode === state.mode) return;
       // 记住切换前题目卡片在视口中的位置，渲染后补回来，避免“位移感”
       pendingScrollAnchor = questionCard.getBoundingClientRect().top;
@@ -2097,7 +2106,8 @@ window.MathJax = {
         '<div class="exam-layout">' +
           '<section class="card question-card">' +
             '<div class="question-meta"><div class="tags"><span class="tag">单选题</span></div>' +
-              '<div class="meta-right"><div class="counter"><strong>' + pad(exam.idx + 1) + '</strong> / ' + total + '</div></div></div>' +
+              '<div class="meta-right"><div class="counter"><strong>' + pad(exam.idx + 1) + '</strong> / ' + total + '</div>' +
+              '<button type="button" class="fav-btn ' + (state.favorites.has(questions.indexOf(q)) ? 'on' : '') + '" id="examFavBtn" title="收藏本题"><span class="fav-icon">' + (state.favorites.has(questions.indexOf(q)) ? '★' : '☆') + '</span><span>收藏</span></button></div></div>' +
             '<div class="question-text">' + formatStem(q.stem) + '</div>' +
             '<div class="options">' + optsHtml + '</div>' +
             '<div class="question-actions">' +
@@ -2139,6 +2149,15 @@ window.MathJax = {
         }
         renderExamRunning(root); examTick();
       }));
+      const examFavBtn = document.getElementById('examFavBtn');
+      if (examFavBtn) examFavBtn.addEventListener('click', function () {
+        const qid = questions.indexOf(q);
+        if (qid < 0) return;
+        if (state.favorites.has(qid)) state.favorites.delete(qid);
+        else state.favorites.add(qid);
+        saveFavorites(); renderFavorites();
+        renderExamRunning(root);
+      });
       ['examSideSubmit'].forEach((id) => {
         const b = document.getElementById(id);
         if (b) b.addEventListener('click', examSubmit);
@@ -2159,6 +2178,15 @@ window.MathJax = {
         correct: o.x.opts.findIndex((t) => t.correct),
         your: o.x.sel
       }));
+      // 错题同步：错的进错题集（+1），答对的从错题集中移除
+      exam.list.forEach(function (x) {
+        const id = questions.indexOf(x.q);
+        if (id < 0) return;
+        const ok = x.sel != null && x.opts[x.sel] && x.opts[x.sel].correct;
+        if (ok) { if (state.wrong[id]) delete state.wrong[id]; }
+        else { state.wrong[id] = (state.wrong[id] || 0) + 1; }
+      });
+      saveWrong(); renderWrong(); renderFavorites();
       const report = { ts: Date.now(), total: total, correct: correct, score: score, seconds: sec, wrong: wrong };
       const arr = examReadReports(); arr.unshift(report); examWriteReports(arr);
       if (exam.timerId) { clearInterval(exam.timerId); exam.timerId = null; }
