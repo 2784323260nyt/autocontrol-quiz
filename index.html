@@ -875,6 +875,59 @@
   html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
 
 </style>
+<style id="sim-mobile">
+@media (max-width: 700px) {
+  /* 顶栏：四个标签在竖屏也要能点全 */
+  .topbar-inner { flex-wrap: nowrap !important; gap: 6px !important; padding: 8px 10px !important; }
+  .brand h1 { font-size: 14px !important; letter-spacing: 0 !important; }
+  .top-tabs { flex: 1 1 auto !important; min-width: 0 !important; overflow-x: auto !important;
+              justify-content: flex-start !important; gap: 2px !important; }
+  .top-tab { flex: 0 0 auto !important; padding: 6px 9px !important; font-size: 12px !important; }
+
+  /* 仿真卷：纸张铺满屏宽，不再左右溢出 */
+  #simView { width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; padding: 0 0 84px !important; }
+  #simView .paper { width: 100% !important; max-width: 100% !important; padding: 9mm 6mm 12mm !important;
+                    border: 0 !important; border-radius: 0 !important; box-shadow: none !important; margin: 0 0 10px !important; }
+  #simView .ph .school { font-size: 14pt !important; letter-spacing: 2px !important; }
+  #simView .ph .ptitle { font-size: 12.5pt !important; }
+  #simView .sec h3 { font-size: 12pt !important; }
+  #simView .q, #simView .ansblock p, #simView .ansblock p.sub { font-size: 9.6pt !important; line-height: 1.95 !important; }
+  /* 空的横线：自动宽度，避免把整行顶到屏幕外 */
+  #simView .u { width: auto !important; min-width: 9mm !important; max-width: 40vw !important; }
+  #simView .blk { max-width: 100%; }
+  /* 选项单列，别两列挤在一起 */
+  #simView .opts { display: block !important; }
+  #simView .opt { display: block !important; margin: 1mm 0 !important; }
+  /* 公式、图形按屏宽缩放，避免右侧被裁 */
+  #simView mjx-container svg { max-width: 100% !important; height: auto !important; }
+  /* 结构图/曲线图在手机上可以横向滑动查看细节，别缩成一片糊 */
+  #simView .fig { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+  #simView .fig svg, #simView .fig img { max-width: 100% !important; width: 100% !important; height: auto !important; }
+  /* 填空横线给足书写长度 */
+  #simView .u { min-width: 14mm !important; }
+  /* 显示答案时，红字答案与前后文之间留一点空隙 */
+  #simView .ans { margin: 0 1.5px; }
+  /* 手机上不要两端对齐：窄栏里会把中文拉成“字距很开”的怪样子 */
+  #simView .q, #simView .ansblock p, #simView .sec h3, #simView .ph { text-align: left !important; }
+  /* 避免末行只剩一两个字/标点 */
+  #simView .q, #simView .ansblock p, #simView .sec h3 { text-wrap: pretty; }
+  /* 给底部悬浮按钮留出空间，别压住最后一行 */
+  #simView { padding-bottom: 120px !important; }
+  #simView table.routh td { padding: 3px 5px !important; font-size: 11px !important; }
+  /* 显示答案：手机改成底部操作条，彻底不压正文 */
+  #simView { padding-bottom: 66px !important; }
+  #simView .toolbar { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                      top: auto !important; transform: none !important; display: flex !important;
+                      justify-content: flex-end !important; gap: 8px !important;
+                      padding: 8px 14px calc(8px + env(safe-area-inset-bottom)) !important;
+                      background: rgba(255,255,255,.97) !important; border-top: 1px solid #e8eeec !important;
+                      box-shadow: 0 -4px 18px rgba(24,52,44,.07) !important; z-index: 6 !important; }
+  #simView .toolbar button { writing-mode: horizontal-tb !important; text-orientation: mixed !important;
+                             padding: 9px 20px !important; border-radius: 999px !important;
+                             font-size: 13px !important; letter-spacing: 1px !important; }
+}
+
+</style>
 </head>
 <body>
   <div class="math-loading" id="mathLoading"><span class="math-spinner"></span><span id="mathLoadingText">公式加载中…</span></div>
