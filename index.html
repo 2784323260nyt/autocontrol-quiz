@@ -670,7 +670,7 @@
 
     /* ===== 手机竖屏适配（窄屏防横向溢出）===== */
     @media (max-width: 700px) {
-      html, body { max-width: 100%; overflow-x: clip; }
+      html, body { max-width: 100%; }
       .topbar-inner { flex-wrap: wrap; row-gap: 8px; padding: 10px 12px; }
       .top-tabs {
         width: 100%; overflow-x: auto; overflow-y: hidden;
@@ -787,7 +787,7 @@
   .exam-wrong-line.right { color: var(--green-dark); font-weight: 700; }
 </style>
 <style id="mobile-fix">
-  html, body { max-width: 100%; overflow-x: clip; }
+  html, body { max-width: 100%; }
   .topbar-inner { flex-wrap: nowrap; gap: 8px; min-width: 0; }
   .top-tabs { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .top-tabs::-webkit-scrollbar { display: none; }
@@ -885,7 +885,7 @@
   .top-tab { flex: 0 0 auto !important; padding: 6px 9px !important; font-size: 12px !important; }
 
   /* 仿真卷：纸张铺满屏宽，不再左右溢出 */
-  #simView { width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; padding: 0 0 84px !important; }
+  #simView { width: 100% !important; max-width: 100vw !important; overflow: visible !important; padding: 0 0 84px !important; }
   #simView .paper { width: 100% !important; max-width: 100% !important; padding: 9mm 6mm 12mm !important;
                     border: 0 !important; border-radius: 0 !important; box-shadow: none !important; margin: 0 0 10px !important; }
   #simView .ph .school { font-size: 14pt !important; letter-spacing: 2px !important; }
@@ -2417,7 +2417,7 @@ window.MathJax = {
   margin:0 2px;font-size:.96em;}#simView .frac>.num{display:block;padding:0 3px 1px;border-bottom:.8pt solid currentColor;}#simView .frac>.den{display:block;padding:1px 3px 0;}#simView .frac.sm{font-size:.78em;}#simView .fig{margin:1.8mm auto 2mm;text-align:center;break-inside:avoid;}#simView .fig svg{width:100%;height:auto;display:block;}#simView table.qb{width:100%;border-collapse:collapse;margin:0 0 .6mm;}#simView table.qb tr{break-inside:avoid;page-break-inside:avoid;}#simView table.qb td{padding:0;vertical-align:top;}#simView .qblock{break-inside:avoid;page-break-inside:avoid;margin:0 0 5mm;}#simView .qblock.stay{break-inside:avoid;page-break-inside:avoid;}#simView .qblock .q{break-inside:avoid;page-break-inside:avoid;}#simView .lines{margin:1mm 0 2mm;break-inside:avoid;page-break-inside:avoid;}#simView .lines .ln{display:block;height:8.3mm;}#simView table.routh{border-collapse:collapse;margin:1mm 0 1.4mm 6mm;font-family:"Times New Roman",serif;}#simView table.routh td{border:.7pt solid #444;padding:.7mm 5mm;text-align:center;font-size:10pt;}#simView .ans, #simView .ansblock{display:none;}#simView.show-ans .ans{display:inline;color:#b00000;font-weight:700;}#simView.show-ans .blk .u{display:none;}#simView.show-ans .ansblock{display:block;}#simView.show-ans .lines{display:none;}#simView.show-ans .opt.right{color:#b00000;font-weight:700;}#simView .tick{display:none;}#simView.show-ans .tick{display:none;}#simView .ansblock{margin:1.2mm 0 2.4mm;padding:0;border:none;background:none;text-align:left;color:#b00000;}#simView .ansblock p{margin:3.2mm 0;text-align:left;text-indent:-1em;padding-left:3em;line-height:2.25;}#simView .ansblock mjx-container, #simView .q mjx-container{margin:0 2.5px;}#simView .ansblock p mjx-container{vertical-align:middle;}#simView .ansblock p:has(> b:first-child){margin-top:4mm;}#simView .ansblock p:last-child{margin-bottom:3mm;}#simView .ansblock p.part{padding-left:0;text-indent:0;margin:5mm 0 2mm;}#simView .ansblock p.sub{padding-left:4.4em;text-indent:0;margin:1.1mm 0;line-height:1.95;}#simView .ansblock p.sub1{padding-left:4.15em;text-indent:0;margin:1.4mm 0;line-height:2.0;}#simView .ansblock table{margin:1.2mm 0 1.6mm 3em;}#simView .rubric{display:none;}#simView .keystamp{position:absolute;right:0;top:0;border:2.2pt solid #b00000;color:#b00000;
   font-family:"SimHei",sans-serif;font-size:10.5pt;line-height:1.35;padding:1.4mm 2.4mm;
   transform:rotate(0deg);letter-spacing:1px;text-align:center;}@media screen{#simView{background:transparent;padding:6px 0 26px;}#simView .paper{width:210mm;max-width:100%;padding:15mm 14mm 18mm;margin:0 auto 22px;
-    border-radius:14px;box-shadow:0 2px 14px rgba(24,52,44,.10);}#simView{scroll-behavior:auto;overscroll-behavior:contain;}#simView .toolbar{position:fixed;right:16px;top:14px;z-index:99;display:flex;gap:8px;}#simView .toolbar button, #simView .toolbar a{border:1px solid #1f4e8c;background:#1f4e8c;color:#fff;border-radius:999px;
+    border-radius:14px;box-shadow:0 2px 14px rgba(24,52,44,.10);}#simView{scroll-behavior:auto;overscroll-behavior:auto;}#simView .toolbar{position:fixed;right:16px;top:14px;z-index:99;display:flex;gap:8px;}#simView .toolbar button, #simView .toolbar a{border:1px solid #1f4e8c;background:#1f4e8c;color:#fff;border-radius:999px;
     padding:8px 14px;font-size:13px;cursor:pointer;text-decoration:none;font-family:"Microsoft YaHei",sans-serif;}#simView .toolbar a.ghost{background:#fff;color:#1f4e8c;}#simView .tips{max-width:210mm;margin:0 auto 14px;color:#445;font-family:"Microsoft YaHei",sans-serif;
     font-size:13px;text-align:center;}}@media print{#simView .toolbar, #simView .tips{display:none!important;}}
 #simView{padding:0 0 40px;background:#fff;}
